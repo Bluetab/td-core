@@ -14,6 +14,10 @@ defmodule TdCore.Auth.Permissions do
     has_permission?(jti, permission, "domain", domain_id)
   end
 
+  def all_authorized?(%{jti: jti}, permission, domain_ids) do
+    Enum.all?(domain_ids, &has_permission?(jti, permission, "domain", &1))
+  end
+
   def authorized?(%{} = claims, permissions) when is_list(permissions) do
     Enum.all?(permissions, &authorized?(claims, &1))
   end
