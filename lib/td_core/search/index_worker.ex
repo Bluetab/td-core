@@ -11,8 +11,6 @@ defmodule TdCore.Search.IndexWorker do
 
   require Logger
 
-  @cluster_config Application.compile_env(:td_core, TdCore.Search.Cluster, [])
-
   ## Public API that maybe uses test
 
   def start_link(index) do
@@ -37,7 +35,8 @@ defmodule TdCore.Search.IndexWorker do
   end
 
   def get_index_workers do
-    @cluster_config
+    :td_core
+    |> Application.get_env(TdCore.Search.Cluster, [])
     |> Keyword.fetch!(:aliases)
     |> Map.keys()
     |> Enum.map(&{TdCore.Search.IndexWorker, &1})
