@@ -50,7 +50,7 @@ defmodule TdCore.Search do
   defp format_response({:ok, %{} = body}, format), do: {:ok, format_response(body, format)}
 
   defp format_response({:error, %{message: message} = error}, _) do
-    Logger.warn("Error response from Elasticsearch: #{message}")
+    Logger.warning("Error response from Elasticsearch: #{message}")
     {:error, error}
   end
 

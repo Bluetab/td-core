@@ -12,10 +12,23 @@ defmodule TdCore.Utils.CollectionUtils do
     end)
   end
 
-  def stringify_keys(%{} = map) do
+  def stringify_keys(map, deep \\ false)
+
+  def stringify_keys(map, deep) when is_struct(map) do
     map
-    |> Enum.into(%{}, fn {k, v} -> {stringify_key(k), v} end)
+    |> Map.from_struct()
+    |> stringify_keys(deep)
   end
+
+  def stringify_keys(%{} = map, deep) do
+    map
+    |> Enum.into(%{}, fn {k, v} -> {stringify_key(k), maybe_stringfy_children(v, deep)} end)
+  end
+
+  def stringify_keys(value, _deep), do: value
+
+  defp maybe_stringfy_children(v, true), do: stringify_keys(v)
+  defp maybe_stringfy_children(v, _), do: v
 
   defp stringify_key(key) when is_atom(key), do: Atom.to_string(key)
   defp stringify_key(key), do: key
