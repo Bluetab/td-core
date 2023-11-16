@@ -88,7 +88,7 @@ defmodule TdCore.Search.Indexer do
   end
 
   def maybe_hot_swap({:error, _error} = put_template_error, _cluster, _alias_name) do
-    Logger.warn("Index template update errors, will not reindex")
+    Logger.warning("Index template update errors, will not reindex")
     put_template_error
   end
 
@@ -113,7 +113,7 @@ defmodule TdCore.Search.Indexer do
     else
       error ->
         log_hot_swap_errors(name, error)
-        Logger.warn("Removing incomplete index #{name}...")
+        Logger.warning("Removing incomplete index #{name}...")
         delete_existing_index(Cluster, name)
         {:error, name}
     end
@@ -131,7 +131,7 @@ defmodule TdCore.Search.Indexer do
         successful_update
 
       {:error, %Elasticsearch.Exception{message: message}} = failed_update ->
-        Logger.warn("Index #{name} template update failed: #{message}")
+        Logger.warning("Index #{name} template update failed: #{message}")
         failed_update
     end
   end
@@ -150,7 +150,7 @@ defmodule TdCore.Search.Indexer do
         successful_deletion
 
       {:error, %{status: 404} = not_found} ->
-        Logger.warn("Index #{name} does not exist, nothing to delete.")
+        Logger.warning("Index #{name} does not exist, nothing to delete.")
         {:ok, not_found}
 
       {:error, e} = failed_deletion when Kernel.is_exception(e) ->
