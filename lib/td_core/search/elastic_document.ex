@@ -101,9 +101,9 @@ defmodule TdCore.Search.ElasticDocument do
 
       defp maybe_disable_search(field_tuple, _), do: field_tuple
 
-      defp merge_dynamic_fields(static_aggs, scope) do
+      defp merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content") do
         TemplateCache.list_by_scope!(scope)
-        |> Enum.flat_map(&content_terms/1)
+        |> Enum.flat_map(&content_terms(&1, content_field))
         |> Map.new()
         |> Map.merge(static_aggs)
       end
@@ -115,20 +115,40 @@ defmodule TdCore.Search.ElasticDocument do
           %{"name" => field, "type" => "domain"} ->
             [
               {field,
-               %{terms: %{field: "#{content_field}.#{field}", size: 50}, meta: %{type: "domain"}}}
+               %{
+                 terms: %{
+                   field: "#{content_field}.#{field}",
+                   size: Cluster.get_size_field("domain")
+                 },
+                 meta: %{type: "domain"}
+               }}
             ]
 
           %{"name" => field, "type" => "hierarchy"} ->
             [
               {field,
-               %{terms: %{field: "#{content_field}.#{field}.raw"}, meta: %{type: "hierarchy"}}}
+               %{
+                 terms: %{
+                   field: "#{content_field}.#{field}.raw",
+                   size: Cluster.get_size_field("hierarchy")
+                 },
+                 meta: %{type: "hierarchy"}
+               }}
             ]
 
           %{"name" => field, "type" => "system"} ->
-            [{field, nested_agg(field, content_field)}]
+            [{field, nested_agg(field, content_field, "system")}]
 
           %{"name" => field, "type" => "user"} ->
-            [{field, %{terms: %{field: "#{content_field}.#{field}.raw"}}}]
+            [
+              {field,
+               %{
+                 terms: %{
+                   field: "#{content_field}.#{field}.raw",
+                   size: Cluster.get_size_field("user")
+                 }
+               }}
+            ]
 
           %{"name" => field, "values" => %{}} ->
             [{field, %{terms: %{field: "#{content_field}.#{field}.raw"}}}]
@@ -138,11 +158,16 @@ defmodule TdCore.Search.ElasticDocument do
         end)
       end
 
-      defp nested_agg(field, content_field) do
+      defp nested_agg(field, content_field, field_type) do
         %{
           nested: %{path: "#{content_field}.#{field}"},
           aggs: %{
-            distinct_search: %{terms: %{field: "#{content_field}.#{field}.external_id.raw"}}
+            distinct_search: %{
+              terms: %{
+                field: "#{content_field}.#{field}.external_id.raw",
+                size: Cluster.get_size_field(field_type)
+              }
+            }
           }
         }
       end

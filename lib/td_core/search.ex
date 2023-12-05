@@ -6,7 +6,6 @@ defmodule TdCore.Search do
   alias TdCache.HierarchyCache
   alias TdCache.TaxonomyCache
   alias TdCore.Search.Cluster
-  alias TdCore.Utils.CollectionUtils
 
   require Logger
 
@@ -70,16 +69,10 @@ defmodule TdCore.Search do
 
       {"hits", %{"hits" => hits, "total" => total}}, acc ->
         acc
-        |> Map.put(:results, transform_results(hits))
+        |> Map.put(:results, hits)
         |> Map.put(:total, get_total(total))
     end)
   end
-
-  defp transform_results(hits),
-    do:
-      hits
-      |> Enum.map(&Map.get(&1, "_source"))
-      |> Enum.map(&CollectionUtils.atomize_keys/1)
 
   defp format_aggregations(aggregations, format \\ nil)
 
