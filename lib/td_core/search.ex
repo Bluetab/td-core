@@ -11,6 +11,8 @@ defmodule TdCore.Search do
 
   def search(body, index, opts \\ [])
 
+  def search(_body, nil, _opts), do: nil
+
   def search(body, index, opts) when is_atom(index) do
     alias_name = Cluster.alias_name(index)
     search(body, alias_name, opts)
