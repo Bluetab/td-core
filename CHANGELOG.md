@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.20.0] 2023-12-13
+
+### Added
+
+- [TD-6215] Improvements have been added to make it usable by other services.
+
 ## [5.19.0] 2023-11-16
 
 ### Added

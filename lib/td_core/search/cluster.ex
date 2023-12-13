@@ -37,4 +37,14 @@ defmodule TdCore.Search.Cluster do
       Map.get(index_config, setting_name)
     end
   end
+
+  def get_size_field(field_type) do
+    __MODULE__
+    |> Config.get()
+    |> get_in([:aggregations, field_type])
+    |> case do
+      nil -> 10
+      size -> size
+    end
+  end
 end

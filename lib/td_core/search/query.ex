@@ -36,6 +36,14 @@ defmodule TdCore.Search.Query do
   def build_permission_filters(:all), do: @match_all
   def build_permission_filters(domain_ids), do: term_or_terms("domain_ids", domain_ids)
 
+  def should(%{} = query, clause), do: put_clause(query, :should, clause)
+  def must(%{} = query, clause), do: put_clause(query, :must, clause)
+  def must_not(%{} = query, clause), do: put_clause(query, :must_not, clause)
+
+  def put_clause(%{} = query, key, clause) do
+    Map.update(query, key, [clause], &[clause | &1])
+  end
+
   defp reduce_query({"must", %{} = must}, %{} = acc, aggs)
        when map_size(must) > 0 do
     Filters.build_filters(must, aggs, acc)
