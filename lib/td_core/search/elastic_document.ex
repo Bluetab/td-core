@@ -22,6 +22,10 @@ defmodule TdCore.Search.ElasticDocument do
         ngram: %{type: "text", analyzer: "ngram"}
       }
 
+      @missing_term_name "_missing"
+
+      def missing_term_name, do: @missing_term_name
+
       defp get_dynamic_mappings(scope) do
         scope
         |> TemplateCache.list_by_scope!()
