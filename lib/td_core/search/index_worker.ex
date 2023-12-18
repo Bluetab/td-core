@@ -41,7 +41,7 @@ defmodule TdCore.Search.IndexWorker do
     |> Application.get_env(TdCore.Search.Cluster, [])
     |> Keyword.fetch!(:aliases)
     |> Map.keys()
-    |> Enum.map(&{TdCore.Search.IndexWorker, &1})
+    |> Enum.map(&Supervisor.child_spec({TdCore.Search.IndexWorker, &1}, id: &1))
   end
 
   ## EventStream.Consumer Callbacks
