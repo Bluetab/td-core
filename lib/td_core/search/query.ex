@@ -25,7 +25,7 @@ defmodule TdCore.Search.Query do
       end)
 
     params
-    |> Map.take(["must", "query", "without", "with"])
+    |> Map.take(["must", "query", "without", "with", "must_not"])
     |> Enum.reduce(filters, &reduce_query(&1, &2, aggs))
     |> maybe_optimize()
     |> add_query_should(query)
@@ -50,6 +50,15 @@ defmodule TdCore.Search.Query do
   end
 
   defp reduce_query({"must", %{}}, %{} = acc, _) do
+    acc
+  end
+
+  defp reduce_query({"must_not", %{} = must}, %{} = acc, aggs)
+       when map_size(must) > 0 do
+    Filters.build_filters(must, aggs, acc)
+  end
+
+  defp reduce_query({"must_not", %{}}, %{} = acc, _) do
     acc
   end
 
