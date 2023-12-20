@@ -25,16 +25,28 @@ defmodule TdCore.Search.ElasticDocument do
         ngram: %{type: "text", analyzer: "ngram"}
       }
 
-      defp get_dynamic_mappings(scope) do
+      defp get_dynamic_mappings(scope, type \\ nil) do
         scope
         |> TemplateCache.list_by_scope!()
-        |> Enum.flat_map(&get_mappings/1)
+        |> Enum.flat_map(&get_mappings(&1, type))
         |> Enum.into(%{})
       end
 
-      defp get_mappings(%{content: content}) do
+      defp get_mappings(%{content: content}, nil) do
         content
         |> Format.flatten_content_fields()
+        |> Enum.map(fn field ->
+          field
+          |> field_mapping
+          |> maybe_boost(field)
+          |> maybe_disable_search(field)
+        end)
+      end
+
+      defp get_mappings(%{content: content}, type) do
+        content
+        |> Format.flatten_content_fields()
+        |> Enum.filter(&(Map.get(&1, "type") == type))
         |> Enum.map(fn field ->
           field
           |> field_mapping
