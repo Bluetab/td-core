@@ -2,6 +2,9 @@ defmodule TdCore.Search.ElasticDocument do
   @moduledoc """
   Defines helper functions for handling the processing of elasticsearch structures
   """
+  @missing_term_name "_missing"
+
+  def missing_term_name, do: @missing_term_name
 
   defmacro __using__(_) do
     quote do
@@ -21,10 +24,6 @@ defmodule TdCore.Search.ElasticDocument do
         sort: %{type: "keyword", normalizer: "sortable"},
         ngram: %{type: "text", analyzer: "ngram"}
       }
-
-      @missing_term_name "_missing"
-
-      def missing_term_name, do: @missing_term_name
 
       defp get_dynamic_mappings(scope) do
         scope
