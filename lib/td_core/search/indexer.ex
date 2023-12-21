@@ -48,6 +48,8 @@ defmodule TdCore.Search.Indexer do
     end)
   end
 
+  def reindex(index, id), do: reindex(index, [id])
+
   defp store_from_alias(alias_name) do
     alias_atom = alias_to_atom(alias_name)
 
