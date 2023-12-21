@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.0] 2023-12-21
+
+### Added
+
+- [TD-6181] Refactor for td-dd
+
+
 ## [5.20.0] 2023-12-13
 
 ### Added
