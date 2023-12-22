@@ -62,9 +62,9 @@ defmodule TdCore.Search.Query do
     acc
   end
 
-  defp reduce_query({"must_not", %{} = must}, %{} = acc, aggs)
-       when map_size(must) > 0 do
-    Filters.build_filters(must, aggs, acc)
+  defp reduce_query({"must_not", %{} = fields}, %{} = acc, aggs)
+       when map_size(fields) > 0 do
+    Filters.build_filters(%{"must_not" => fields}, aggs, acc)
   end
 
   defp reduce_query({"must_not", %{}}, %{} = acc, _) do
