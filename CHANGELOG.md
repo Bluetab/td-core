@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.0.1] 2023-12-21
+
+### Fixed
+
+- [TD-6181] Fix must not query
+
 ## [6.0.0] 2023-12-21
 
 ### Added
