@@ -2,6 +2,7 @@ defmodule TdCore.SearchTest do
   use ExUnit.Case
 
   alias TdCore.Search
+  alias TdCore.TestSupport.CacheHelpers
 
   import Mox
 
