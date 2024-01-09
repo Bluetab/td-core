@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.0.2] 2024-01-09
+
+### Changed
+
+- [TD-6221] Moved test support to lib folder to be available for other modules
+
 ## [6.0.1] 2023-12-21
 
 ### Fixed

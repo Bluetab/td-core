@@ -2,6 +2,7 @@ defmodule TdCore.Search.PermissionsTest do
   use ExUnit.Case
 
   alias TdCore.Search.Permissions
+  alias TdCore.TestSupport.CacheHelpers
 
   describe "Permissions.get_search_permissions/2" do
     test "returns a map with values :all for admin role" do
