@@ -129,6 +129,8 @@ defmodule TdCore.Search.Query do
     end
   end
 
+  def ids(values), do: %{ids: %{"values" => values}}
+
   def term_or_terms(field, value_or_values) do
     case List.wrap(value_or_values) do
       [value] -> %{term: %{field => value}}
