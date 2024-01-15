@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [6.0.3] 2024-01-09
 
 ### Added
 
@@ -23,7 +23,6 @@
 ### Added
 
 - [TD-6181] Refactor for td-dd
-
 
 ## [5.20.0] 2023-12-13
 
