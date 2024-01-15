@@ -67,6 +67,8 @@ defmodule TdCore.Search.Filters do
     {:must, Query.range(field, value)}
   end
 
+  defp build_filter("ids", values), do: {:must, Query.ids(values)}
+
   defp build_filter(field, values) when is_binary(field) do
     {:must, term(field, values)}
   end
