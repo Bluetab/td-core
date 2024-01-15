@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-6165] Search by data structure ids
+
 ## [6.0.2] 2024-01-09
 
 ### Changed
