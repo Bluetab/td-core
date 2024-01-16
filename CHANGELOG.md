@@ -1,10 +1,16 @@
 # Changelog
 
-## [6.0.3] 2024-01-16
+## [6.0.4] 2024-01-16
 
 ### Changed
 
 - [TD-6195] Update td-df-lib
+
+## [6.0.3] 2024-01-09
+
+### Added
+
+- [TD-6165] Search by data structure ids
 
 ## [6.0.2] 2024-01-09
 
