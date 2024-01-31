@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.1.0] 2024-01-31
+
+### Added
+
+- [TD-6342] Elasticsearch.Document Integer implementation
+
 ## [6.0.4] 2024-01-16
 
 ### Changed
