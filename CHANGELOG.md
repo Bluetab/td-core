@@ -1,5 +1,6 @@
 # Changelog
 
+<<<<<<< Updated upstream
 ## [6.1.0] 2024-01-31
 
 ### Added
@@ -17,6 +18,13 @@
 ### Added
 
 - [TD-6165] Search by data structure ids
+=======
+## [Unreleased]
+
+### Added
+
+- [TD-6243] Elastich Search delete indexes
+>>>>>>> Stashed changes
 
 ## [6.0.2] 2024-01-09
 

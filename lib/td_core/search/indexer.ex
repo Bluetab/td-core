@@ -84,6 +84,34 @@ defmodule TdCore.Search.Indexer do
     Enum.map(ids, &Elasticsearch.delete_document(Cluster, &1, alias_name))
   end
 
+  def list_indexes do
+    {:ok, aliases} = Elasticsearch.get(Cluster, "_alias")
+
+    alias_by_index =
+      Enum.map(aliases, fn {key, value} ->
+        {key, value["aliases"] |> Map.keys() |> List.first()}
+      end)
+      |> Enum.into(%{})
+
+    {:ok, %{"indices" => indices}} = Elasticsearch.get(Cluster, "_stats/docs,store")
+
+    Enum.map(indices, fn {key, value} ->
+      %{
+        "total" => %{
+          "store" => %{"size_in_bytes" => size},
+          "docs" => %{"count" => documents}
+        }
+      } = value
+
+      %{
+        key: key,
+        alias: Map.get(alias_by_index, key),
+        size: size,
+        documents: documents
+      }
+    end)
+  end
+
   def maybe_hot_swap({:ok, _put_template_result}, _cluster, alias_name) do
     Logger.info("Starting reindex using hot_swap...")
     hot_swap(alias_name)
@@ -144,6 +172,8 @@ defmodule TdCore.Search.Indexer do
       {:error, _} -> false
     end
   end
+
+  def delete_existing_index(cluster \\ Cluster, name)
 
   def delete_existing_index(cluster, name) do
     case Elasticsearch.delete(cluster, "/#{name}") do

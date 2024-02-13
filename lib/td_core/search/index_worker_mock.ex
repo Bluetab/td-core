@@ -1,4 +1,4 @@
-defmodule TdCore.Search.MockIndexWorker do
+defmodule TdCore.Search.IndexWorkerMock do
   @moduledoc false
 
   use Agent
@@ -17,5 +17,9 @@ defmodule TdCore.Search.MockIndexWorker do
 
   def delete(index, ids) do
     Agent.update(__MODULE__, &[{:delete, index, ids} | &1])
+  end
+
+  def get_index_workers do
+    [TdCore.Search.IndexWorkerMock]
   end
 end
