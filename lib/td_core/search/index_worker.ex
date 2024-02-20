@@ -23,7 +23,7 @@ defmodule TdCore.Search.IndexWorker do
   def get_index_workers,
     do: impl().get_index_workers()
 
-  defp impl() do
+  defp impl do
     if Application.get_env(:td_core, :env) == :test do
       TdCore.Search.IndexWorkerMock
     else

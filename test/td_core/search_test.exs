@@ -15,11 +15,6 @@ defmodule TdCore.SearchTest do
 
   setup :verify_on_exit!
 
-  setup do
-    {:ok, _pid} = Search.Cluster.start_link(aliases: %{test_alias: "string_test_alias"})
-    :ok
-  end
-
   describe "Search.search/3" do
     test "is compatible with Elasticsearch 6.x" do
       ElasticsearchMock
