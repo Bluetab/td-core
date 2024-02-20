@@ -295,4 +295,51 @@ defmodule TdCore.Search.IndexerTest do
       assert log =~ ":econnrefused"
     end
   end
+
+  describe "list_indexes" do
+    test "parses Elasticsearch response to render indexes" do
+      ElasticsearchMock
+      |> Mox.expect(:request, 1, fn _, :get, "_alias", _, [] ->
+        {:ok,
+         %{
+           "index_1" => %{"aliases" => %{"alias_1" => %{}}},
+           "index_2" => %{"aliases" => %{"alias_2" => %{}}},
+           "index_3" => %{"aliases" => %{}}
+         }}
+      end)
+
+      ElasticsearchMock
+      |> Mox.expect(:request, 1, fn _, :get, "_stats/docs,store", _, [] ->
+        {:ok,
+         %{
+           "indices" => %{
+             "index_1" => %{
+               "total" => %{
+                 "store" => %{"size_in_bytes" => 123_456},
+                 "docs" => %{"count" => 42}
+               }
+             },
+             "index_2" => %{
+               "total" => %{
+                 "store" => %{"size_in_bytes" => 789_123},
+                 "docs" => %{"count" => 24}
+               }
+             },
+             "index_3" => %{
+               "total" => %{
+                 "store" => %{"size_in_bytes" => 42},
+                 "docs" => %{"count" => 55}
+               }
+             }
+           }
+         }}
+      end)
+
+      assert [
+               %{alias: "alias_1", documents: 42, key: "index_1", size: 123_456},
+               %{alias: "alias_2", documents: 24, key: "index_2", size: 789_123},
+               %{alias: nil, documents: 55, key: "index_3", size: 42}
+             ] = Indexer.list_indexes()
+    end
+  end
 end
