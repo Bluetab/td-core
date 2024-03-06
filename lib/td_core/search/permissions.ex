@@ -13,6 +13,7 @@ defmodule TdCore.Search.Permissions do
   end
 
   def get_search_permissions(permissions, claims, resource_type \\ "domain")
+
   def get_search_permissions(permissions, %{role: role} = _claims, _resource_type)
       when role in ["admin", "service"] and is_list(permissions) do
     Map.new(permissions, &{&1, :all})

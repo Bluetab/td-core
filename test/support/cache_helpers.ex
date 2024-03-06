@@ -55,7 +55,10 @@ defmodule TdCore.TestSupport.CacheHelpers do
 
   def put_sessions_permissions(session_id, exp, domain_ids_by_permission) do
     on_exit(fn -> Redix.del!("session:#{session_id}:domain:permissions") end)
-    Permissions.cache_session_permissions!(session_id, exp, %{"domain" => domain_ids_by_permission})
+
+    Permissions.cache_session_permissions!(session_id, exp, %{
+      "domain" => domain_ids_by_permission
+    })
   end
 
   def put_default_permissions(permissions) do
