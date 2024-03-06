@@ -30,12 +30,11 @@ defmodule TdCore.MixProject do
       {:jason, "~> 1.1"},
       {:guardian, "~> 2.0"},
       {:mox, "~> 1.0", only: :test},
-      {:ex_machina, "~> 2.7"},
       {:elasticsearch, "~> 1.1"},
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "5.19.0"},
-      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "5.20.0"},
-      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "6.0.0"}
+      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", branch: "feature/td-4110"},
+      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", branch: "feature/td-4110"}
     ]
   end
 end
