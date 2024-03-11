@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.1.1] 2024-02-20
+
+### Added
+
+- [TD-6243] Support for deleting Elasticsearch indexes
+
 ## [6.1.0] 2024-01-31
 
 ### Added
