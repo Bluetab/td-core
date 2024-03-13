@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-6433] Support for Vault functionality
+
 ## [6.1.1] 2024-02-20
 
 ### Added
