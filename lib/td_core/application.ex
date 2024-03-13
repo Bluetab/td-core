@@ -8,13 +8,14 @@ defmodule TdCore.Application do
   @impl true
   def start(_type, _args) do
     children =
-      [
-        TdCore.Search.Cluster
-      ] ++ IndexWorker.get_index_workers()
+      :td_core
+      |> Application.get_env(TdCore.Search.Cluster)
+      |> workers()
 
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
     opts = [strategy: :one_for_one, name: TdCore.Supervisor]
     Supervisor.start_link(children, opts)
   end
+
+  defp workers(nil), do: []
+  defp workers(_), do: [TdCore.Search.Cluster] ++ IndexWorker.get_index_workers()
 end
