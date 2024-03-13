@@ -34,8 +34,8 @@ defmodule TdCore.MixProject do
       {:elasticsearch, "~> 1.1"},
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "5.19.0"},
-      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", branch: "feature/td-4110"},
-      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", branch: "feature/td-4110"}
+      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", ref: "feature/td-4110"},
+      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", ref: "feature/td-4110"}
     ]
   end
 end
