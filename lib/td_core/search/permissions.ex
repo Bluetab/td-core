@@ -12,22 +12,25 @@ defmodule TdCore.Search.Permissions do
     |> Enum.map(&Query.build_permission_filters/1)
   end
 
-  def get_search_permissions(permissions, %{role: role} = _claims)
+  def get_search_permissions(permissions, claims, resource_type \\ "domain")
+
+  def get_search_permissions(permissions, %{role: role} = _claims, _resource_type)
       when role in ["admin", "service"] and is_list(permissions) do
     Map.new(permissions, &{&1, :all})
   end
 
-  def get_search_permissions(permissions, claims) when is_list(permissions) do
+  def get_search_permissions(permissions, claims, resource_type) when is_list(permissions) do
     permissions
     |> Map.new(&{&1, :none})
-    |> do_get_search_permissions(claims)
+    |> do_get_search_permissions(claims, resource_type)
   end
 
-  defp do_get_search_permissions(defaults, %{jti: jti} = _claims) do
+  defp do_get_search_permissions(defaults, %{jti: jti} = _claims, resource_type) do
     session_permissions = TdCache.Permissions.get_session_permissions(jti)
     default_permissions = get_default_permissions(defaults)
 
     session_permissions
+    |> Map.get(resource_type, %{})
     |> Map.take(Map.keys(defaults))
     |> Map.merge(default_permissions, fn
       _, _, :all -> :all

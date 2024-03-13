@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.3.0] 2024-03-13
+
+### Added
+
+- [TD-4110] Allow structure scoped permissions management
+
 ## [6.1.1] 2024-02-20
 
 ### Added
