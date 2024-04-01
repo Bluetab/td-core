@@ -181,7 +181,15 @@ defmodule TdCore.Search.ElasticDocument do
         ]
 
       %{"name" => field, "values" => %{}} ->
-        [{field, %{terms: %{field: "#{content_field}.#{field}.raw"}}}]
+        [
+          {field,
+           %{
+             terms: %{
+               field: "#{content_field}.#{field}.raw",
+               size: Cluster.get_size_field("default")
+             }
+           }}
+        ]
 
       _ ->
         []

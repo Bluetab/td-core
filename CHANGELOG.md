@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.4.0] 2024-04-01
+
+### Fixed
+
+- [TD-6401] Fixed Content aggregations have a maximum of 10 values
+
 ## [6.3.0] 2024-03-13
 
 ### Added
