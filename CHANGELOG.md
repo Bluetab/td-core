@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.4.1] 2024-04-03
+
+### Fixed
+
+- [TD-6507] Update td-df-lib version for add url case to format search value
+
 ## [6.4.0] 2024-04-01
 
 ### Fixed
