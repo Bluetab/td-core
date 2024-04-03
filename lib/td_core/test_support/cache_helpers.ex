@@ -4,7 +4,6 @@ defmodule TdCore.TestSupport.CacheHelpers do
   """
 
   import ExUnit.Callbacks, only: [on_exit: 1]
-  import TdCore.Factory
 
   alias TdCache.AclCache
   alias TdCache.Permissions
@@ -55,12 +54,49 @@ defmodule TdCore.TestSupport.CacheHelpers do
   end
 
   def put_sessions_permissions(session_id, exp, domain_ids_by_permission) do
-    on_exit(fn -> Redix.del!("session:#{session_id}:permissions") end)
-    Permissions.cache_session_permissions!(session_id, exp, domain_ids_by_permission)
+    on_exit(fn -> Redix.del!("session:#{session_id}:domain:permissions") end)
+
+    Permissions.cache_session_permissions!(session_id, exp, %{
+      "domain" => domain_ids_by_permission
+    })
   end
 
   def put_default_permissions(permissions) do
     on_exit(fn -> TdCache.Permissions.put_default_permissions([]) end)
     TdCache.Permissions.put_default_permissions(permissions)
+  end
+
+  defp build(:domain, params) do
+    {id, string_id} = next_unique_ids()
+
+    Enum.into(params, %{
+      name: "domain_name" <> string_id,
+      id: id,
+      external_id: "domain_external_id" <> string_id,
+      updated_at: DateTime.utc_now(),
+      parent_id: nil
+    })
+  end
+
+  defp build(:user, params) do
+    {id, string_id} = next_unique_ids()
+
+    Enum.into(
+      params,
+      %{
+        id: id,
+        role: "user",
+        user_name: "user_name" <> string_id,
+        full_name: "full_name" <> string_id,
+        external_id: "user_external_id" <> string_id,
+        email: "email" <> string_id <> "@example.com"
+      }
+    )
+  end
+
+  defp next_unique_ids do
+    id = System.unique_integer([:positive])
+    string_id = Integer.to_string(id)
+    {id, string_id}
   end
 end
