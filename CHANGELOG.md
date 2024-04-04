@@ -1,11 +1,16 @@
 # Changelog
 
+## [6.3.0] 2024-03-13
+
+### Added
+
+- [TD-4110] Allow structure scoped permissions management
+
 ## [6.1.2] 2024-04-03
 
 ### Fixed
 
 - [TD-6507] Update td-df-lib version
-
 
 ## [6.1.1] 2024-02-20
 
