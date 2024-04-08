@@ -1,10 +1,24 @@
 # Changelog
 
-## [6.3.1] 2024-04-03
+## [6.4.1] 2024-04-03
 
 ### Fixed
 
-- [TD-6507] Update td-df-lib version
+- [TD-6507] Update td-df-lib version for add url case to format search value
+
+## [6.4.0] 2024-04-01
+
+### Fixed
+
+- [TD-6401] Fixed Content aggregations have a maximum of 10 values
+
+
+## [6.3.2] 2024-04-03
+## [6.3.1] 2024-04-03
+
+### Added
+
+- [TD-6507] Update td-df-lib version for add url case to format search value
 
 ## [6.3.0] 2024-03-13
 
@@ -14,9 +28,9 @@
 
 ## [6.1.2] 2024-04-03
 
-### Fixed
+### Added
 
-- [TD-6507] Update td-df-lib version
+- [TD-6507] Update td-df-lib version for add url case to format search value
 
 ## [6.1.1] 2024-02-20
 
