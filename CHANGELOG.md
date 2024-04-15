@@ -1,10 +1,22 @@
 # Changelog
 
+## [6.5.1] 2024-04-15
+
+### Added
+
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration
+
 ## [6.5.0] 2024-04-10
 
 ### Fixed
 
 - [TD-6424] Update td-df-lib
+
+## [6.4.2] 2024-04-15
+
+### Added
+
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration
 
 ## [6.4.1] 2024-04-03
 
@@ -19,6 +31,12 @@
 - [TD-6401] Fixed Content aggregations have a maximum of 10 values
 
 
+## [6.3.3] 2024-04-15
+
+### Added
+
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration 
+
 ## [6.3.2] 2024-04-03
 ## [6.3.1] 2024-04-03
 
@@ -32,9 +50,15 @@
 
 - [TD-4110] Allow structure scoped permissions management
 
-## [6.1.2] 2024-04-03
+## [6.1.3] 2024-04-15
 
 ### Added
+
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration 
+
+## [6.1.2] 2024-04-03
+
+### Fixed
 
 - [TD-6507] Update td-df-lib version for add url case to format search value
 
