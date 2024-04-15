@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.4.2] 2024-04-15
+
+### Added
+
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration
+
+
 ## [6.4.1] 2024-04-03
 
 ### Fixed
