@@ -149,7 +149,7 @@ defmodule TdCore.Search.Indexer do
 
         log_hot_swap_errors(name, process_key, error)
 
-        delete_existing_index(Cluster, name, alias_name, delete_index)
+        delete_existing_index(name, alias_name, Cluster, delete_index)
 
         {:error, name}
     end
@@ -179,17 +179,24 @@ defmodule TdCore.Search.Indexer do
     end
   end
 
-  def delete_existing_index(cluster, name, alias_name, false) do
+  def delete_existing_index(name, cluster \\ Cluster)
+
+  def delete_existing_index(name, cluster) do
+    [alias_name | _] = String.split(name, "-")
+    delete_existing_index(name, alias_name, cluster, true)
+  end
+
+  def delete_existing_index(name, alias_name, cluster, false) do
     if alias_exists?(Cluster, alias_name) do
-      delete_existing_index(cluster, name, alias_name, true)
+      delete_existing_index(name, alias_name, cluster, true)
     else
       Logger.info("The index #{name} has not been deleted")
       {:ok, :index_not_deleted}
     end
   end
 
-  def delete_existing_index(cluster, name, _alias_name, _true) do
-    Logger.warning("Removing incomplete index #{name}...")
+  def delete_existing_index(name, _alias_name, cluster, _true) do
+    Logger.warning("Removing index #{name}...")
 
     case Elasticsearch.delete(cluster, "/#{name}") do
       {:ok, result} = successful_deletion ->
