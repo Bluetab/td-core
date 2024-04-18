@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.5.2] 2024-04-18
+
+### Fixed
+
+- [TD-6535] Delete elasticsearch index only with the index name
+
 ## [6.5.1] 2024-04-15
 
 ### Added
