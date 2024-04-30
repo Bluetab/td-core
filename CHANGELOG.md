@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.5.3] 2024-04-30
+
+### Added
+
+- [TD-6492] Update td-df-lib for path enrichment
+
 ## [6.5.2] 2024-04-18
 
 ### Fixed
@@ -36,14 +42,14 @@
 
 - [TD-6401] Fixed Content aggregations have a maximum of 10 values
 
-
 ## [6.3.3] 2024-04-15
 
 ### Added
 
-- [TD-6535] Enrich log hot swap errors and remove index variable configuration 
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration
 
 ## [6.3.2] 2024-04-03
+
 ## [6.3.1] 2024-04-03
 
 ### Added
@@ -60,7 +66,7 @@
 
 ### Added
 
-- [TD-6535] Enrich log hot swap errors and remove index variable configuration 
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration
 
 ## [6.1.2] 2024-04-03
 
