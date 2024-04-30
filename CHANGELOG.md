@@ -1,10 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [6.5.3] 2024-04-30
 
 ### Added
 
-- [TD-6492] Update td-df-lib
+- [TD-6492] Update td-df-lib for path enrichment
 
 ## [6.5.2] 2024-04-18
 
