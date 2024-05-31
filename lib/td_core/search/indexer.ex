@@ -215,6 +215,7 @@ defmodule TdCore.Search.Indexer do
 
   def log_bulk_post_items_errors(errors, index, action) do
     errors
+    |> tap(&Logger.error("[bulk post] #{inspect(&1)}"))
     |> Enum.map(&"#{info_document_id(&1, action)}: #{message(&1, action)}\n")
     |> Kernel.then(fn messages ->
       ["#{index}: bulk indexing encountered #{pluralize(errors)}:\n" | messages]
@@ -224,6 +225,7 @@ defmodule TdCore.Search.Indexer do
 
   def log_hot_swap_errors(index, {:error, [_ | _] = exceptions}) do
     exceptions
+    |> tap(&Logger.error("[HOT SWAP] #{inspect(&1)}"))
     |> Enum.map(&"#{message(&1)}\n")
     |> Kernel.then(fn messages ->
       ["New index #{index} build finished with #{pluralize(exceptions)}:\n" | messages]
@@ -247,26 +249,22 @@ defmodule TdCore.Search.Indexer do
     "#{Enum.count(exceptions)} errors"
   end
 
-  defp message(%Elasticsearch.Exception{} = e) do
-    "#{info_document_id(e)}#{Exception.message(e)}"
-  end
-
-  defp message(e) when Kernel.is_exception(e) do
-    Exception.message(e)
-  end
-
   defp message(e) do
-    "#{inspect(e)}"
+    "message [error] #{inspect(e)}"
   end
 
   defp message(item, action) do
+    Logger.error("message [item, action] #{inspect({item, action})}")
     item[action]["error"]["reason"]
   end
 
   defp info_document_id(%Elasticsearch.Exception{raw: %{"_id" => id}}),
     do: "Document ID #{id}: "
 
-  defp info_document_id(_), do: ""
+  defp info_document_id(error) do
+    Logger.error("No document Info:  #{error}")
+    "[NDIE] "
+  end
 
   defp info_document_id(item, action) do
     "Document ID #{item[action]["_id"]}"
