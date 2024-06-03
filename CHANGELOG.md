@@ -12,7 +12,6 @@
 
 - [TD-6535] Enrich log hot swap errors and remove index variable configuration 
 
-
 ## [6.1.2] 2024-04-03
 
 ### Fixed
