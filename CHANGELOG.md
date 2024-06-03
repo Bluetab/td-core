@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.1.3] 2024-04-03
+
+### Fixed
+
+- [TD-6640] Elastic search errors
+
 ## [6.1.2] 2024-04-03
 
 ### Fixed
