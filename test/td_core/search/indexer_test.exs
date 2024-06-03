@@ -213,7 +213,7 @@ defmodule TdCore.Search.IndexerTest do
 
       assert log =~ "build finished with an error"
       assert log =~ "structures-1691599336795214"
-      assert log =~ "Document ID 1769350"
+      assert log =~ "[HOT SWAP]"
       assert log =~ "mapper_parsing_exception"
       assert log =~ "2022-11-25 12:48:05.233999872"
     end
@@ -232,8 +232,7 @@ defmodule TdCore.Search.IndexerTest do
 
       assert log =~ "build finished with 2 errors"
       assert log =~ "structures-1691599336795214"
-      assert log =~ "Document ID 1769350"
-      assert log =~ "Document ID 1769343"
+      assert log =~ "[HOT SWAP]"
       assert log =~ "mapper_parsing_exception"
       assert log =~ "2022-11-25 12:48:05.233999872"
       assert log =~ "2022-11-28 09:32:55.036000000"

@@ -258,14 +258,6 @@ defmodule TdCore.Search.Indexer do
     item[action]["error"]["reason"]
   end
 
-  defp info_document_id(%Elasticsearch.Exception{raw: %{"_id" => id}}),
-    do: "Document ID #{id}: "
-
-  defp info_document_id(error) do
-    Logger.error("No document Info:  #{error}")
-    "[NDIE] "
-  end
-
   defp info_document_id(item, action) do
     "Document ID #{item[action]["_id"]}"
   end
