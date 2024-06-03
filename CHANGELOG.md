@@ -1,10 +1,17 @@
 # Changelog
 
-## [6.1.3] 2024-04-03
+## [6.1.4] 2024-04-03
 
 ### Fixed
 
-- [TD-6640] Elastic search errors
+- [TD-6640] Show all elastic search errors
+
+## [6.1.3] 2024-04-15
+
+### Added
+
+- [TD-6535] Enrich log hot swap errors and remove index variable configuration 
+
 
 ## [6.1.2] 2024-04-03
 

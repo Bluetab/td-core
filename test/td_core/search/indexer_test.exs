@@ -207,11 +207,12 @@ defmodule TdCore.Search.IndexerTest do
         capture_log(fn ->
           Indexer.log_hot_swap_errors(
             "structures-1691599336795214",
+            :foo,
             {:error, [elasticsearch_exception_1]}
           )
         end)
 
-      assert log =~ "build finished with an error"
+      assert log =~ "build finished in foo with an error"
       assert log =~ "structures-1691599336795214"
       assert log =~ "[HOT SWAP]"
       assert log =~ "mapper_parsing_exception"
@@ -226,11 +227,12 @@ defmodule TdCore.Search.IndexerTest do
         capture_log(fn ->
           Indexer.log_hot_swap_errors(
             "structures-1691599336795214",
+            :foo,
             {:error, [elasticsearch_exception_1, elasticsearch_exception_2]}
           )
         end)
 
-      assert log =~ "build finished with 2 errors"
+      assert log =~ "build finished in foo with 2 errors"
       assert log =~ "structures-1691599336795214"
       assert log =~ "[HOT SWAP]"
       assert log =~ "mapper_parsing_exception"
@@ -245,12 +247,13 @@ defmodule TdCore.Search.IndexerTest do
         capture_log(fn ->
           Indexer.log_hot_swap_errors(
             "structures-1691599336795214",
+            :foo,
             {:error, elasticsearch_exception_3}
           )
         end)
 
       assert log =~ "structures-1691599336795214"
-      assert log =~ "build finished with an error"
+      assert log =~ "build finished in foo 001 with an error"
       assert log =~ "an index or data stream exists with the same name as the alias"
     end
 
@@ -261,12 +264,13 @@ defmodule TdCore.Search.IndexerTest do
         capture_log(fn ->
           Indexer.log_hot_swap_errors(
             "structures-1691599336795214",
+            :foo,
             {:error, exception_connection_refused}
           )
         end)
 
       assert log =~ "structures-1691599336795214"
-      assert log =~ "build finished with an error"
+      assert log =~ "build finished in foo 001 with an error"
       assert log =~ ":econnrefused"
     end
 
@@ -278,6 +282,7 @@ defmodule TdCore.Search.IndexerTest do
         capture_log(fn ->
           Indexer.log_hot_swap_errors(
             "structures-1691599336795214",
+            :foo,
             {
               :error,
               [
@@ -290,7 +295,7 @@ defmodule TdCore.Search.IndexerTest do
         end)
 
       assert log =~ "structures-1691599336795214"
-      assert log =~ "build finished with 3 errors"
+      assert log =~ "build finished in foo with 3 errors"
       assert log =~ ":econnrefused"
     end
   end

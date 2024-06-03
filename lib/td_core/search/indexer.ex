@@ -130,21 +130,27 @@ defmodule TdCore.Search.Indexer do
     config = Config.get(Cluster)
     %{settings: settings} = index_config = config[:indexes][alias_name]
 
-    with :ok <- Index.create_from_settings(config, name, %{settings: settings}),
-         :ok <- Bulk.upload(config, name, index_config),
-         :ok <- Index.alias(config, name, to_string(alias_name)),
-         :ok <- Index.clean_starting_with(config, to_string(alias_name), 2),
-         :ok <- Index.refresh(config, name) do
+    with {:index_from_settings, :ok} <-
+           {:index_from_settings, Index.create_from_settings(config, name, %{settings: settings})},
+         {:bulk_upload, :ok} <- {:bulk_upload, Bulk.upload(config, name, index_config)},
+         {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
+         {:index_clean_starting, :ok} <-
+           {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
+         {:index_refresh, :ok} <- {:index_refresh, Index.refresh(config, name)} do
       Logger.info(
         "Hot swap successful, finished reindexing, pointing alias #{alias_name} -> #{name}"
       )
 
       {:ok, name}
     else
-      error ->
-        log_hot_swap_errors(name, error)
-        Logger.warning("Removing incomplete index #{name}...")
-        delete_existing_index(Cluster, name)
+      {process_key, error} ->
+        delete_index =
+          Application.get_env(:td_core, TdCore.Search.Cluster)[:delete_existing_index]
+
+        log_hot_swap_errors(name, process_key, error)
+
+        delete_existing_index(Cluster, name, alias_name, delete_index)
+
         {:error, name}
     end
   end
@@ -173,9 +179,18 @@ defmodule TdCore.Search.Indexer do
     end
   end
 
-  def delete_existing_index(cluster \\ Cluster, name)
+  def delete_existing_index(cluster, name, alias_name, false) do
+    if alias_exists?(Cluster, alias_name) do
+      delete_existing_index(cluster, name, alias_name, true)
+    else
+      Logger.info("The index #{name} has not been deleted")
+      {:ok, :index_not_deleted}
+    end
+  end
 
-  def delete_existing_index(cluster, name) do
+  def delete_existing_index(cluster, name, _alias_name, _true) do
+    Logger.warning("Removing incomplete index #{name}...")
+
     case Elasticsearch.delete(cluster, "/#{name}") do
       {:ok, result} = successful_deletion ->
         Logger.info("Successfully deleted index #{name}: #{inspect(result)}")
@@ -223,22 +238,29 @@ defmodule TdCore.Search.Indexer do
     |> Logger.error()
   end
 
-  def log_hot_swap_errors(index, {:error, [_ | _] = exceptions}) do
+  def log_hot_swap_errors(index, process_key, {:error, [_ | _] = exceptions}) do
     exceptions
     |> tap(&Logger.error("[HOT SWAP] #{inspect(&1)}"))
     |> Enum.map(&"#{message(&1)}\n")
     |> Kernel.then(fn messages ->
-      ["New index #{index} build finished with #{pluralize(exceptions)}:\n" | messages]
+      [
+        "New index #{index} build finished in #{process_key} with #{pluralize(exceptions)}:\n"
+        | messages
+      ]
     end)
     |> Logger.error()
   end
 
-  def log_hot_swap_errors(index, {:error, e}) do
-    Logger.error("New index #{index} build finished with an error:\n #{message(e)}")
+  def log_hot_swap_errors(index, process_key, {:error, e}) do
+    Logger.error(
+      "New index #{index} build finished in #{process_key} 001 with an error:\n #{message(e)}"
+    )
   end
 
-  def log_hot_swap_errors(index, e) do
-    Logger.error("New index #{index} build finished with an error:\n #{message(e)}")
+  def log_hot_swap_errors(index, process_key, e) do
+    Logger.error(
+      "New index #{index} build finished in #{process_key} 002 with an error:\n #{message(e)}"
+    )
   end
 
   def pluralize([_e]) do
