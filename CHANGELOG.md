@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-6399] Add atomize_keys multi level functionality
+
 ## [6.5.3] 2024-04-30
 
 ### Added
