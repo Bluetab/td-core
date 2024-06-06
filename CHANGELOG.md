@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-6561] Use keywork list for elastic search configuration
+
 ## [6.5.3] 2024-04-30
 
 ### Added
