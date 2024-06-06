@@ -95,7 +95,7 @@ defmodule TdCore.Search.IndexWorkerImpl do
     :td_core
     |> get_indexes()
     |> Enum.map(fn {index, resource} ->
-      {Map.get(resource, :template_scope), index}
+      {Keyword.get(resource, :template_scope), index}
     end)
     |> Map.new()
   end
