@@ -8,8 +8,8 @@ defmodule TdCore.Search.Cluster do
     indexes =
       Enum.reduce(aliases, %{}, fn
         {index, alias_name}, acc ->
-          with index_keyword = config <- Keyword.fetch!(indexes, index),
-               settings <- Keyword.fetch!(index_keyword, :settings),
+          with config <- Keyword.fetch!(indexes, index),
+               settings <- Keyword.fetch!(config, :settings),
                [_ | _] = config <- Keyword.put(config, :settings, Map.merge(settings, defaults)) do
             Map.put(acc, String.to_atom(alias_name), Map.new(config))
           else
