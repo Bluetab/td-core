@@ -6,6 +6,18 @@
 
 - [TD-6399] Add atomize_keys multi level functionality
 
+## [6.7.1] 2024-06-10
+
+### Changed
+
+- [TD-6402] IndexWorker behaviour
+
+## [6.7.0] 2024-06-07
+
+### Changed
+
+- [TD-6561] Use keywork list for elastic search configuration
+
 ## [6.5.3] 2024-04-30
 
 ### Added

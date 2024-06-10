@@ -19,6 +19,8 @@ defmodule TdCore.Search.IndexWorkerMock do
     Agent.update(__MODULE__, &[{:delete, index, ids} | &1])
   end
 
+  def consume(_events), do: :ok
+
   def get_index_workers do
     [TdCore.Search.IndexWorkerMock]
   end
