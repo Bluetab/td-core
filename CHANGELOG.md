@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-6402] IndexWorker behaviour
+
 ## [6.7.0] 2024-06-07
 
 ### Changed

@@ -3,8 +3,6 @@ defmodule TdCore.Search.IndexWorkerImpl do
   GenServer to run reindex task
   """
 
-  @behaviour TdCache.EventStream.Consumer
-
   use GenServer
 
   alias TdCore.Search.Indexer
@@ -12,14 +10,12 @@ defmodule TdCore.Search.IndexWorkerImpl do
 
   require Logger
 
-  ## Public API that maybe uses test
-
   def start_link(index) do
     GenServer.start_link(__MODULE__, index, name: index)
   end
 
-  def reindex(index, ids) do
-    GenServer.cast(index, {:reindex, ids})
+  def reindex(index, ids, setup \\ fn -> :ok end) do
+    GenServer.cast(index, {:reindex, ids, setup})
   end
 
   def delete(index, ids) do
@@ -35,8 +31,6 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   ## EventStream.Consumer Callbacks
-
-  @impl TdCache.EventStream.Consumer
   def consume(events) do
     index_scope = get_index_template_scope()
 
