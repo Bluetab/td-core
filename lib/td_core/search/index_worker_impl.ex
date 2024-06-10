@@ -14,8 +14,8 @@ defmodule TdCore.Search.IndexWorkerImpl do
     GenServer.start_link(__MODULE__, index, name: index)
   end
 
-  def reindex(index, ids, setup \\ fn -> :ok end) do
-    GenServer.cast(index, {:reindex, ids, setup})
+  def reindex(index, ids) do
+    GenServer.cast(index, {:reindex, ids})
   end
 
   def delete(index, ids) do
