@@ -33,13 +33,23 @@ defmodule TdCore.Utils.CollectionUtils do
   defp stringify_key(key) when is_atom(key), do: Atom.to_string(key)
   defp stringify_key(key), do: key
 
-  def atomize_keys(%{} = map) do
-    map
-    |> Enum.into(%{}, fn {k, v} -> {atomize_key(k), v} end)
+  def atomize_keys(element, deep \\ false)
+
+  def atomize_keys(%{} = map, deep) do
+    Enum.into(map, %{}, fn {k, v} -> {atomize_key(k), maybe_atomize_children(v, deep)} end)
   end
+
+  def atomize_keys([_ | _] = list, deep) do
+    Enum.map(list, &atomize_keys(&1, deep))
+  end
+
+  def atomize_keys(element, _deep), do: element
 
   defp atomize_key(key) when is_binary(key), do: String.to_atom(key)
   defp atomize_key(key), do: key
+
+  defp maybe_atomize_children(v, true), do: atomize_keys(v, true)
+  defp maybe_atomize_children(v, _), do: v
 
   def merge_common(%{} = map1, %{} = map2) do
     keys1 = Map.keys(map1)
