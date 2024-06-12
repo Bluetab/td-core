@@ -3,16 +3,12 @@ defmodule TdCore.Search.IndexWorkerImpl do
   GenServer to run reindex task
   """
 
-  @behaviour TdCache.EventStream.Consumer
-
   use GenServer
 
   alias TdCore.Search.Indexer
   alias TdCore.Utils.Timer
 
   require Logger
-
-  ## Public API that maybe uses test
 
   def start_link(index) do
     GenServer.start_link(__MODULE__, index, name: index)
@@ -35,8 +31,6 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   ## EventStream.Consumer Callbacks
-
-  @impl TdCache.EventStream.Consumer
   def consume(events) do
     index_scope = get_index_template_scope()
 
@@ -95,7 +89,7 @@ defmodule TdCore.Search.IndexWorkerImpl do
     :td_core
     |> get_indexes()
     |> Enum.map(fn {index, resource} ->
-      {Map.get(resource, :template_scope), index}
+      {Keyword.get(resource, :template_scope), index}
     end)
     |> Map.new()
   end
