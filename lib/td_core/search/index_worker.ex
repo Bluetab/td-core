@@ -1,4 +1,7 @@
 defmodule TdCore.Search.IndexWorker do
+  @moduledoc """
+  Behavior for index worker
+  """
 
   @behaviour TdCore.Search.IndexWorkerBehaviour
   @behaviour TdCache.EventStream.Consumer
