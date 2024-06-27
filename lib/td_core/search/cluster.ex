@@ -2,6 +2,7 @@ defmodule TdCore.Search.Cluster do
   @moduledoc "Elasticsearch cluster configuration"
 
   use Elasticsearch.Cluster, otp_app: :td_core
+  @default_size 500
 
   @impl GenServer
   def init(%{aliases: aliases, indexes: indexes, default_settings: defaults} = config) do
@@ -44,7 +45,7 @@ defmodule TdCore.Search.Cluster do
     |> Config.get()
     |> get_in([:aggregations, field_type])
     |> case do
-      nil -> 10
+      nil -> @default_size
       size -> size
     end
   end

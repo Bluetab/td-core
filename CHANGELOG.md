@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.8.3] 2024-06-26
+
+### Changed
+
+- [TD-4647] Default aggregation size
+
 ## [6.8.2] 2024-06-05
 
 ### Added
