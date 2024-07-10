@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.9.0] 2024-07-10
+
+### Changed
+
+- [TD-6602] Update td-cache and td-df-lib
+
 ## [6.8.3] 2024-06-26
 
 ### Changed
