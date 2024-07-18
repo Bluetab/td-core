@@ -37,7 +37,7 @@ defmodule TdCore.MixProject do
         :td_cluster,
         git: "https://github.com/Bluetab/td-cluster.git", tag: "5.19.0"
       },
-      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "6.3.0"},
+      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "6.5.1"},
       {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", branch: "hotfix/td-6713"}
     ]
   end
