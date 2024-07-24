@@ -4,6 +4,12 @@
 
 ### Changed
 
+- [TD-6689] Update td-df-lib and td-cache
+
+## [6.9.2] 2024-07-24
+
+### Changed
+
 - [TD-6723] Update td-df-lib
 
 ## [6.9.1] 2024-07-19
