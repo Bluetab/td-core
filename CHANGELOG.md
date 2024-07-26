@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.9.5] 2024-07-26
+
+### Changed
+
+- [TD-6733] Update td-df-lib
+
 ## [6.9.4] 2024-07-24
 
 ### Changed
