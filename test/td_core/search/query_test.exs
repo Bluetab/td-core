@@ -123,4 +123,40 @@ defmodule TdCore.Search.QueryTest do
              }
     end
   end
+
+  describe "maybe_add_since/3" do
+    setup %{} do
+      %{query: %{bool: %{must: %{match_all: %{}}}}}
+    end
+
+    test "return query with range for given field when since in params", %{query: query} do
+      params = %{"since" => "2024-01-01 00:00"}
+
+      %{bool: %{filter: filter}} = Query.maybe_add_since(query, params, :date_field)
+      assert [%{range: %{date_field: %{gt: "2024-01-01T00:00"}}}] = filter
+    end
+
+    test "return same query when no since in params", %{query: query} do
+      params = %{}
+      assert query == Query.maybe_add_since(query, params, :date_field)
+    end
+  end
+
+  describe "maybe_add_min_id/3" do
+    setup %{} do
+      %{query: %{bool: %{must: %{match_all: %{}}}}}
+    end
+
+    test "return query with range for id when min_id in params", %{query: query} do
+      params = %{"min_id" => 123}
+
+      %{bool: %{filter: filter}} = Query.maybe_add_min_id(query, params)
+      assert [%{range: %{id: %{gt: 123}}}] = filter
+    end
+
+    test "return same query when no min_id in params", %{query: query} do
+      params = %{}
+      assert query == Query.maybe_add_min_id(query, params)
+    end
+  end
 end
