@@ -133,7 +133,7 @@ defmodule TdCore.Search.QueryTest do
       params = %{"since" => "2024-01-01 00:00"}
 
       %{bool: %{filter: filter}} = Query.maybe_add_since(query, params, :date_field)
-      assert [%{range: %{date_field: %{gt: "2024-01-01T00:00"}}}] = filter
+      assert [%{range: %{date_field: %{gte: "2024-01-01T00:00"}}}] = filter
     end
 
     test "return same query when no since in params", %{query: query} do
@@ -151,7 +151,7 @@ defmodule TdCore.Search.QueryTest do
       params = %{"min_id" => 123}
 
       %{bool: %{filter: filter}} = Query.maybe_add_min_id(query, params)
-      assert [%{range: %{id: %{gt: 123}}}] = filter
+      assert [%{range: %{id: %{gte: 123}}}] = filter
     end
 
     test "return same query when no min_id in params", %{query: query} do

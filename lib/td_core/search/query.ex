@@ -174,7 +174,7 @@ defmodule TdCore.Search.Query do
     the_bool = Map.get(query, :bool, %{})
     the_filter = Map.get(the_bool, :filter, [])
 
-    the_range = Map.new([{field_to_search, %{gt: String.replace(since, " ", "T")}}])
+    the_range = Map.new([{field_to_search, %{gte: String.replace(since, " ", "T")}}])
     the_new_filter = [%{range: the_range} | the_filter]
 
     the_new_bool = Map.put(the_bool, :filter, the_new_filter)
@@ -193,7 +193,7 @@ defmodule TdCore.Search.Query do
     the_filter = Map.get(the_bool, :filter, [])
 
     the_new_filter = [
-      %{range: %{id: %{gt: min_id}}} | the_filter
+      %{range: %{id: %{gte: min_id}}} | the_filter
     ]
 
     the_new_bool = Map.put(the_bool, :filter, the_new_filter)
