@@ -22,6 +22,10 @@ defmodule TdCore.Search do
     post(body, index, opts)
   end
 
+  def maybe_sort_by_id(body, %{"min_id" => _}), do: Map.put(body, :sort, [%{"id" => "asc"}])
+
+  def maybe_sort_by_id(body, _), do: body
+
   defp post(body, index, opts) do
     search_opts = search_opts(opts[:params])
 

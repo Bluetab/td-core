@@ -168,4 +168,38 @@ defmodule TdCore.Search.Query do
 
     %{bool: bool}
   end
+
+  def maybe_add_since(query, %{"since" => since}, field_to_search)
+      when is_atom(field_to_search) do
+    the_bool = Map.get(query, :bool, %{})
+    the_filter = Map.get(the_bool, :filter, [])
+
+    the_range = Map.new([{field_to_search, %{gte: String.replace(since, " ", "T")}}])
+    the_new_filter = [%{range: the_range} | the_filter]
+
+    the_new_bool = Map.put(the_bool, :filter, the_new_filter)
+
+    query
+    |> Map.put(:bool, the_new_bool)
+  end
+
+  def maybe_add_since(query, _, _), do: query
+
+  def maybe_add_min_id(query, %{"min_id" => min_id}) when is_binary(min_id),
+    do: maybe_add_min_id(query, %{"min_id" => String.to_integer(min_id)})
+
+  def maybe_add_min_id(query, %{"min_id" => min_id}) when is_integer(min_id) do
+    the_bool = Map.get(query, :bool, %{})
+    the_filter = Map.get(the_bool, :filter, [])
+
+    the_new_filter = [
+      %{range: %{id: %{gte: min_id}}} | the_filter
+    ]
+
+    the_new_bool = Map.put(the_bool, :filter, the_new_filter)
+
+    Map.put(query, :bool, the_new_bool)
+  end
+
+  def maybe_add_min_id(query, _), do: query
 end
