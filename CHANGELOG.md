@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.13.0] 2024-10-09
+
+### Added
+
+- [TD-6469] Plug to fetch `accept-language` from request headers.
+
 ## [6.9.6] 2024-07-29
 
 ### Changed
