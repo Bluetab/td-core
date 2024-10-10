@@ -4,7 +4,7 @@
 
 ### Changed
 
-- [TD-6773] `td-df-lib` version.
+- [TD-6773] `td-df-lib` bump version.
 
 ## [6.13.0] 2024-10-09
 
