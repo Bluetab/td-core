@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.13.1] 2024-10-10
+
+### Changed
+
+- [TD-6773] `td-df-lib` bump version.
+
 ## [6.13.0] 2024-10-09
 
 ### Added
