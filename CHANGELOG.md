@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- [TD-6779] Add Query and Search since and min id
+
 ## [6.9.6] 2024-07-29
 
 ### Changed
