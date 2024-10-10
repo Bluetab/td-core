@@ -171,7 +171,7 @@ defmodule TdCore.Search.Query do
 
   def maybe_add_since(%{"since" => value} = params, field_to_search)
       when is_binary(field_to_search) do
-    the_field = Map.new([{field_to_search, %{"gte" => value}}])
+    the_field = Map.new([{field_to_search, %{"gte" => String.replace(value, " ", "T")}}])
 
     params
     |> add_to_params_must(the_field)
@@ -198,9 +198,11 @@ defmodule TdCore.Search.Query do
     params
     |> Map.get("must")
     |> case do
-      nil -> Map.put(params, "must", field_criteria)
-      must when is_list(must) -> Map.put(params, "must", [field_criteria | must])
-      must -> Map.put(params, "must", [field_criteria, must])
+      nil ->
+        Map.put(params, "must", field_criteria)
+
+      must ->
+        Map.put(params, "must", Map.merge(must, field_criteria))
     end
   end
 end

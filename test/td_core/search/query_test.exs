@@ -132,7 +132,7 @@ defmodule TdCore.Search.QueryTest do
       }
 
       %{"foo" => _, "must" => filter} = Query.maybe_add_since(params, "date_field")
-      assert %{"date_field" => %{"gte" => "2024-01-01 00:00"}} = filter
+      assert %{"date_field" => %{"gte" => "2024-01-01T00:00"}} = filter
 
       params = %{
         "must" => %{"field" => "value"},
@@ -142,24 +142,21 @@ defmodule TdCore.Search.QueryTest do
 
       %{"foo" => _, "must" => filters} = Query.maybe_add_since(params, "date_field")
 
-      assert [
-               %{"date_field" => %{"gte" => "2024-01-01 00:00"}},
-               %{"field" => "value"}
-             ] = filters
+      assert %{"date_field" => %{"gte" => "2024-01-01T00:00"}, "field" => "value"} = filters
 
       params = %{
-        "must" => [%{"field" => "value"}, %{"field_2" => "value_2"}],
+        "must" => %{"field" => "value", "field_2" => "value_2"},
         "since" => "2024-01-01 00:00",
         "foo" => "bar"
       }
 
       %{"foo" => _, "must" => filters} = Query.maybe_add_since(params, "date_field")
 
-      assert [
-               %{"date_field" => %{"gte" => "2024-01-01 00:00"}},
-               %{"field" => "value"},
-               %{"field_2" => "value_2"}
-             ] = filters
+      assert %{
+               "date_field" => %{"gte" => "2024-01-01T00:00"},
+               "field" => "value",
+               "field_2" => "value_2"
+             } = filters
     end
 
     test "return same params when no since in params" do
@@ -174,7 +171,7 @@ defmodule TdCore.Search.QueryTest do
       assert params == Query.maybe_add_since(params, "date_field")
 
       params = %{
-        "must" => [%{"field" => "value"}, %{"field_2" => "value_2"}],
+        "must" => %{"field" => "value", "field_2" => "value_2"},
         "foo" => "bar"
       }
 
@@ -200,24 +197,20 @@ defmodule TdCore.Search.QueryTest do
 
       %{"foo" => _, "must" => filters} = Query.maybe_add_min_id(params)
 
-      assert [
-               %{"id" => %{"gte" => 100}},
-               %{"field" => "value"}
-             ] = filters
+      assert %{
+               "id" => %{"gte" => 100},
+               "field" => "value"
+             } = filters
 
       params = %{
-        "must" => [%{"field" => "value"}, %{"field_2" => "value_2"}],
+        "must" => %{"field" => "value", "field_2" => "value_2"},
         "min_id" => 100,
         "foo" => "bar"
       }
 
       %{"foo" => _, "must" => filters} = Query.maybe_add_min_id(params)
 
-      assert [
-               %{"id" => %{"gte" => 100}},
-               %{"field" => "value"},
-               %{"field_2" => "value_2"}
-             ] = filters
+      assert %{"id" => %{"gte" => 100}, "field" => "value", "field_2" => "value_2"} = filters
     end
 
     test "return same params when no min_id in params" do
