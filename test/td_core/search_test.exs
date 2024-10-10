@@ -115,28 +115,23 @@ defmodule TdCore.SearchTest do
     end
   end
 
-  describe "maybe_sort_by_id/2" do
+  describe "get_sort/2" do
     setup %{},
       do: %{
-        body: %{
-          from: 0,
-          query: %{bool: %{must: %{match_all: %{}}}},
-          size: 100,
-          sort: ["_score", "inserted_at"]
-        }
+        sort: ["_score", "inserted_at"]
       }
 
-    test "returns sorting by id when min_id in params", %{body: body} do
+    test "returns sorting by id when min_id in params", %{sort: default_sort} do
       params = %{"min_id" => 5}
 
-      response = Search.maybe_sort_by_id(body, params)
-      assert %{sort: [%{"id" => "asc"}]} = response
+      response = Search.get_sort(params, default_sort)
+      assert [%{"id" => "asc"}] = response
     end
 
-    test "returns same sorting when no min_id in params", %{body: %{sort: sort} = body} do
+    test "returns same sorting when no min_id in params", %{sort: default_sort} do
       params = %{}
 
-      assert %{sort: ^sort} = Search.maybe_sort_by_id(body, params)
+      assert default_sort == Search.get_sort(params, default_sort)
     end
   end
 end

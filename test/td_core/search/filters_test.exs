@@ -64,11 +64,16 @@ defmodule TdCore.Search.FiltersTest do
                }
     end
 
-    test "handles updated_at, start_date and end_date as ranges" do
-      for field <- ["updated_at", "start_date", "end_date"] do
+    test "handles inserted_at, updated_at, start_date and end_date as ranges" do
+      for field <- ["inserted_at", "updated_at", "start_date", "end_date"] do
         assert Filters.build_filters(%{field => %{"gte" => "now-1d/d"}}, %{}, %{}) ==
                  %{must: %{range: %{field => %{"gte" => "now-1d/d"}}}}
       end
+    end
+
+    test "handles id with gte as range" do
+      assert Filters.build_filters(%{"id" => %{"gte" => 100}}, %{}, %{}) ==
+               %{must: %{range: %{"id" => %{"gte" => 100}}}}
     end
   end
 end

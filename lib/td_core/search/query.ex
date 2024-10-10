@@ -169,37 +169,38 @@ defmodule TdCore.Search.Query do
     %{bool: bool}
   end
 
-  def maybe_add_since(query, %{"since" => since}, field_to_search)
-      when is_atom(field_to_search) do
-    the_bool = Map.get(query, :bool, %{})
-    the_filter = Map.get(the_bool, :filter, [])
+  def maybe_add_since(%{"since" => value} = params, field_to_search)
+      when is_binary(field_to_search) do
+    the_field = Map.new([{field_to_search, %{"gte" => value}}])
 
-    the_range = Map.new([{field_to_search, %{gte: String.replace(since, " ", "T")}}])
-    the_new_filter = [%{range: the_range} | the_filter]
-
-    the_new_bool = Map.put(the_bool, :filter, the_new_filter)
-
-    query
-    |> Map.put(:bool, the_new_bool)
+    params
+    |> add_to_params_must(the_field)
+    |> Map.delete("since")
   end
 
-  def maybe_add_since(query, _, _), do: query
+  def maybe_add_since(params, _), do: params
 
-  def maybe_add_min_id(query, %{"min_id" => min_id}) when is_binary(min_id),
-    do: maybe_add_min_id(query, %{"min_id" => String.to_integer(min_id)})
+  def maybe_add_min_id(%{"min_id" => id} = params)
+      when is_integer(id) do
+    the_field = Map.new([{"id", %{"gte" => id}}])
 
-  def maybe_add_min_id(query, %{"min_id" => min_id}) when is_integer(min_id) do
-    the_bool = Map.get(query, :bool, %{})
-    the_filter = Map.get(the_bool, :filter, [])
-
-    the_new_filter = [
-      %{range: %{id: %{gte: min_id}}} | the_filter
-    ]
-
-    the_new_bool = Map.put(the_bool, :filter, the_new_filter)
-
-    Map.put(query, :bool, the_new_bool)
+    params
+    |> add_to_params_must(the_field)
+    |> Map.delete("min_id")
   end
 
-  def maybe_add_min_id(query, _), do: query
+  def maybe_add_min_id(%{"min_id" => id} = params),
+    do: maybe_add_min_id(Map.put(params, "min_id", String.to_integer(id)))
+
+  def maybe_add_min_id(params), do: params
+
+  defp add_to_params_must(params, field_criteria) do
+    params
+    |> Map.get("must")
+    |> case do
+      nil -> Map.put(params, "must", field_criteria)
+      must when is_list(must) -> Map.put(params, "must", [field_criteria | must])
+      must -> Map.put(params, "must", [field_criteria, must])
+    end
+  end
 end

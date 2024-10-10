@@ -63,8 +63,12 @@ defmodule TdCore.Search.Filters do
   end
 
   defp build_filter(field, value)
-       when field in ["updated_at", "start_date", "end_date"] do
+       when field in ["inserted_at", "updated_at", "start_date", "end_date"] do
     {:must, Query.range(field, value)}
+  end
+
+  defp build_filter("id", %{"gte" => id} = value) when is_integer(id) do
+    {:must, Query.range("id", value)}
   end
 
   defp build_filter("ids", values), do: {:must, Query.ids(values)}
