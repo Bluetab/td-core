@@ -31,7 +31,7 @@ defmodule TdCore.MixProject do
       {:jason, "~> 1.1"},
       {:guardian, "~> 2.0"},
       {:mox, "~> 1.0", only: :test},
-      {:elasticsearch, "~> 1.1"},
+      {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git"},
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {
         :td_cluster,

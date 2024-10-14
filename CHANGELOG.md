@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-6743] Remove incompatibilities with Elasticsearch v8
+  - "include_type_name" param.
+  - "\_doc" prefix on bulk URL
+  - Elasticsearch dependency updated to Bluetab fork
+
 ## [6.13.1] 2024-10-10
 
 ### Changed
