@@ -4,6 +4,9 @@ defmodule TdCore.Utils.QueryUtils do
   """
   import Ecto.Query
 
+  def maybe_add_limit(query, %{size: limit}),
+    do: maybe_add_limit(query, %{"size" => limit})
+
   def maybe_add_limit(query, %{"size" => limit}) when is_binary(limit),
     do: maybe_add_limit(query, %{"size" => String.to_integer(limit)})
 
