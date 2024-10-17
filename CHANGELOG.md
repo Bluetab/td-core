@@ -1,6 +1,6 @@
 # Changelog
 
-## [6.13.2] 2024-10-17
+## [6.13.3] 2024-10-17
 
 ### Changed
 
@@ -8,6 +8,12 @@
   - "include_type_name" param.
   - "\_doc" prefix on bulk URL
   - Elasticsearch dependency updated to Bluetab fork
+
+## [6.13.2] 2024-10-14
+
+### Changed
+
+- [TD-6617] `td-df-lib` bump version.
 
 ## [6.13.1] 2024-10-10
 
