@@ -42,7 +42,7 @@ defmodule TdCore.Search.Indexer do
       |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
       |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
       |> Stream.map(&Enum.join(&1, ""))
-      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_doc/_bulk", &1))
+      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
       |> Stream.map(&log_bulk_post(alias_name, &1, @action))
       |> Stream.run()
     end)
@@ -159,9 +159,7 @@ defmodule TdCore.Search.Indexer do
   defp alias_to_atom(str) when is_binary(str), do: String.to_existing_atom(str)
 
   def put_template(template, cluster, name) do
-    case Elasticsearch.put(cluster, "/_template/#{name}", template,
-           params: %{"include_type_name" => "false"}
-         ) do
+    case Elasticsearch.put(cluster, "/_template/#{name}", template) do
       {:ok, result} = successful_update ->
         Logger.info("Index #{name} template update successful: #{inspect(result)}")
         successful_update

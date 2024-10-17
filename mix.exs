@@ -4,7 +4,7 @@ defmodule TdCore.MixProject do
   def project do
     [
       app: :td_core,
-      version: "6.13.2",
+      version: "6.13.3",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -31,7 +31,7 @@ defmodule TdCore.MixProject do
       {:jason, "~> 1.1"},
       {:guardian, "~> 2.0"},
       {:mox, "~> 1.0", only: :test},
-      {:elasticsearch, "~> 1.1"},
+      {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git"},
       {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
       {
         :td_cluster,
