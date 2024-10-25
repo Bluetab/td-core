@@ -6,8 +6,10 @@ defmodule TdCore.Search.ElasticDocument do
 
   def missing_term_name, do: @missing_term_name
 
+  alias TdCache.I18nCache
   alias TdCache.TemplateCache
   alias TdCore.Search.Cluster
+  alias TdCore.Search.ElasticDocument
   alias TdDfLib.Format
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
@@ -35,6 +37,9 @@ defmodule TdCore.Search.ElasticDocument do
       def get_dynamic_mappings(scope, type \\ nil),
         do: ElasticDocument.get_dynamic_mappings(scope, type)
 
+      def get_locales_fields_mapping(fields_properties),
+        do: ElasticDocument.get_locales_fields_mapping(fields_properties)
+
       def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
         do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
     end
@@ -55,6 +60,7 @@ defmodule TdCore.Search.ElasticDocument do
       |> field_mapping
       |> maybe_boost(field)
       |> maybe_disable_search(field)
+      |> get_locales_fields_mapping()
     end)
   end
 
@@ -112,6 +118,19 @@ defmodule TdCore.Search.ElasticDocument do
 
   def field_mapping(%{"name" => name}) do
     {name, mapping_type("string")}
+  end
+
+  def get_locales_fields_mapping({name, fields_properties}), do:
+    {name, %{properties: get_locales_fields_mapping(fields_properties)}}
+
+  def get_locales_fields_mapping(fields_properties) do
+    I18nCache.get_active_locales!()
+    |> Enum.reduce(%{}, fn locale, mapping ->
+      # FIXME: Add analyzer
+      mapping
+      |> Map.put(String.to_atom(locale), fields_properties)
+      |> Map.merge(@raw)
+    end)
   end
 
   def maybe_boost(field_tuple, %{"boost" => boost}) when boost in ["", "1"], do: field_tuple
