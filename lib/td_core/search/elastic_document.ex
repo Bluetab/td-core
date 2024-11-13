@@ -6,8 +6,10 @@ defmodule TdCore.Search.ElasticDocument do
 
   def missing_term_name, do: @missing_term_name
 
+  alias TdCache.I18nCache
   alias TdCache.TemplateCache
   alias TdCore.Search.Cluster
+  alias TdCore.Search.ElasticDocument
   alias TdDfLib.Format
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
@@ -35,6 +37,12 @@ defmodule TdCore.Search.ElasticDocument do
       def get_dynamic_mappings(scope, type \\ nil),
         do: ElasticDocument.get_dynamic_mappings(scope, type)
 
+      def add_locales_fields_mapping(mapping, fields),
+        do: ElasticDocument.add_locales_fields_mapping(mapping, fields)
+
+      def add_locales_content_mapping(fields_properties),
+        do: ElasticDocument.add_locales_content_mapping(fields_properties)
+
       def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
         do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
     end
@@ -55,7 +63,9 @@ defmodule TdCore.Search.ElasticDocument do
       |> field_mapping
       |> maybe_boost(field)
       |> maybe_disable_search(field)
+      |> add_locales_content_mapping()
     end)
+    |> List.flatten()
   end
 
   def get_mappings(%{content: content}, type) do
@@ -112,6 +122,37 @@ defmodule TdCore.Search.ElasticDocument do
 
   def field_mapping(%{"name" => name}) do
     {name, mapping_type("string")}
+  end
+
+  def add_locales_fields_mapping(mapping, fields) do
+    {:ok, default_locale} = I18nCache.get_default_locale()
+
+    locales =
+      I18nCache.get_active_locales!()
+      |> Enum.reject(&(&1 == default_locale))
+
+    fields
+    |> Enum.map(fn field ->
+      field_property = Map.get(mapping, field)
+
+      locales
+      |> Enum.reduce(%{}, fn locale, acc ->
+        Map.put(acc, :"#{field}_#{locale}", field_property)
+      end)
+    end)
+    |> Enum.reduce(%{}, &Map.merge(&1, &2))
+    |> Map.merge(mapping)
+  end
+
+  def add_locales_content_mapping({name, fields_properties}) do
+    {:ok, default_locale} = I18nCache.get_default_locale()
+
+    I18nCache.get_active_locales!()
+    |> Enum.map(fn locale ->
+      if locale == default_locale,
+        do: {"#{name}", fields_properties},
+        else: {"#{name}_#{locale}", fields_properties}
+    end)
   end
 
   def maybe_boost(field_tuple, %{"boost" => boost}) when boost in ["", "1"], do: field_tuple

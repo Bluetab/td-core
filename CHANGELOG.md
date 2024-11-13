@@ -1,5 +1,9 @@
 # Changelog
 
+## [6.15.0] 2024-11-13
+
+- [TD-6783] Locale dynamic mapping for content and properties
+
 ## [6.14.0] 2024-10-25
 
 ### Changed
