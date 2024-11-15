@@ -63,7 +63,7 @@ defmodule TdCore.Search.Filters do
   end
 
   defp build_filter(field, value)
-       when field in ["updated_at", "start_date", "end_date"] do
+       when field in ["updated_at", "inserted_at", "start_date", "end_date"] do
     {:must, Query.range(field, value)}
   end
 
