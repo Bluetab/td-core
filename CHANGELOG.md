@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+## Added
+
+- [TD-6938] Add Filter inserted_at field
+
 ## [6.14.0] 2024-10-25
 
 ### Changed
