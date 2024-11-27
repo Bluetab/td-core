@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.15.1] 2024-11-27
+
+### Changed
+
+- [TD-6908] `td-df-lib` bump version.
+
 ## [6.15.0] 2024-11-13
 
 - [TD-6783] Locale dynamic mapping for content and properties
