@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+## Added
+
+- [TD-6938] When creating filters, treat "inserted_at" and "last_change_at" as ranges
+
 ## [6.15.1] 2024-11-27
 
 ### Changed
