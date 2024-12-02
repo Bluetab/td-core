@@ -1,10 +1,22 @@
 # Changelog
 
+<<<<<<< HEAD
 ## [Unreleased]
 
 ## Added
 
 - [TD-6938] When creating filters, treat "inserted_at" and "last_change_at" as ranges
+=======
+## [6.15.1] 2024-11-27
+
+### Changed
+
+- [TD-6908] `td-df-lib` bump version.
+
+## [6.15.0] 2024-11-13
+
+- [TD-6783] Locale dynamic mapping for content and properties
+>>>>>>> a16effbc3a5c3682ab3cddbdb5e5449e555dfd0a
 
 ## [6.14.0] 2024-10-25
 
