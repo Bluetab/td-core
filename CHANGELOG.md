@@ -4,7 +4,7 @@
 
 ## Added
 
-- [TD-6938] Add Filter inserted_at field
+- [TD-6938] When creating filters, treat "inserted_at" and "last_change_at" as ranges
 
 ## [6.14.0] 2024-10-25
 
