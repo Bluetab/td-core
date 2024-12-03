@@ -13,6 +13,9 @@ defmodule TdCore.Search.ElasticDocument do
   alias TdDfLib.Format
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
+  @disabled_field_types ~w(table url copy)
+  @entity_types ~w(domain hierarchy system user)
+  @fitrable_types @disabled_field_types ++ @entity_types
 
   defmacro __using__(_) do
     quote do
@@ -46,7 +49,7 @@ defmodule TdCore.Search.ElasticDocument do
       def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
         do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
 
-      defdelegate content_terms(scope, content_field \\ "df_content"), to: ElasticDocument
+      defdelegate searchable_fields(scope), to: ElasticDocument
     end
   end
 
@@ -82,15 +85,7 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  def field_mapping(%{"name" => name, "type" => "table"}) do
-    {name, %{enabled: false}}
-  end
-
-  def field_mapping(%{"name" => name, "type" => "url"}) do
-    {name, %{enabled: false}}
-  end
-
-  def field_mapping(%{"name" => name, "type" => "copy"}) do
+  def field_mapping(%{"name" => name, "type" => type}) when type not in @disabled_field_types do
     {name, %{enabled: false}}
   end
 
@@ -192,59 +187,52 @@ defmodule TdCore.Search.ElasticDocument do
   def content_terms(%{content: content}, content_field) do
     content
     |> Format.flatten_content_fields()
-    |> Enum.flat_map(fn
+    |> Enum.map(fn
       %{"name" => field, "type" => "domain"} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}",
-               size: Cluster.get_size_field("domain")
-             },
-             meta: %{type: "domain"}
-           }}
-        ]
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}",
+             size: Cluster.get_size_field("domain")
+           },
+           meta: %{type: "domain"}
+         }}
 
       %{"name" => field, "type" => "hierarchy"} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}.raw",
-               size: Cluster.get_size_field("hierarchy")
-             },
-             meta: %{type: "hierarchy"}
-           }}
-        ]
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}.raw",
+             size: Cluster.get_size_field("hierarchy")
+           },
+           meta: %{type: "hierarchy"}
+         }}
 
       %{"name" => field, "type" => "system"} ->
-        [{field, nested_agg(field, content_field, "system")}]
+        {field, nested_agg(field, content_field, "system")}
 
       %{"name" => field, "type" => "user"} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}.raw",
-               size: Cluster.get_size_field("user")
-             }
-           }}
-        ]
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}.raw",
+             size: Cluster.get_size_field("user")
+           }
+         }}
 
       %{"name" => field, "values" => %{}} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}.raw",
-               size: Cluster.get_size_field("default")
-             }
-           }}
-        ]
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}.raw",
+             size: Cluster.get_size_field("default")
+           }
+         }}
 
       _ ->
-        []
+        nil
     end)
+    |> Enum.filter(& &1)
   end
 
   def nested_agg(field, content_field, field_type) do
@@ -259,5 +247,19 @@ defmodule TdCore.Search.ElasticDocument do
         }
       }
     }
+  end
+
+  def searchable_fields(scope) do
+    scope
+    |> TemplateCache.list_by_scope!()
+    |> Enum.flat_map(fn %{content: content} -> Format.flatten_content_fields(content) end)
+    |> Enum.reject(fn
+      %{"type" => type} -> type in @fitrable_types
+      %{"values" => %{}} -> true
+      _other -> false
+    end)
+    |> Enum.flat_map(&add_locales_content_mapping/1)
+    |> Enum.map(fn {field, _} -> field end)
+    |> Enum.uniq()
   end
 end
