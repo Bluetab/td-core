@@ -41,8 +41,7 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, @aggs) == %{
                bool: %{
-                 must: %{simple_query_string: %{query: "foo*"}},
-                 should: %{multi_match: %{operator: "and", query: "foo*", type: "best_fields"}}
+                 must: %{simple_query_string: %{query: "foo*"}}
                }
              }
     end
@@ -55,8 +54,7 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, @aggs) == %{
                bool: %{
-                 must: [%{simple_query_string: %{query: "foo*"}}, %{term: %{"type.raw" => "foo"}}],
-                 should: %{multi_match: %{operator: "and", query: "foo*", type: "best_fields"}}
+                 must: [%{simple_query_string: %{query: "foo*"}}, %{term: %{"type.raw" => "foo"}}]
                }
              }
     end
