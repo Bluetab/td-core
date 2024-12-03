@@ -45,6 +45,8 @@ defmodule TdCore.Search.ElasticDocument do
 
       def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
         do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
+
+      defdelegate content_terms(scope, content_field \\ "df_content"), to: ElasticDocument
     end
   end
 
@@ -173,13 +175,21 @@ defmodule TdCore.Search.ElasticDocument do
   def maybe_disable_search(field_tuple, _), do: field_tuple
 
   def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content") do
-    TemplateCache.list_by_scope!(scope)
-    |> Enum.flat_map(&content_terms(&1, content_field))
-    |> Map.new()
+    scope
+    |> content_terms(content_field)
     |> Map.merge(static_aggs)
   end
 
-  def content_terms(%{content: content}, content_field \\ "df_content") do
+  def content_terms(content_or_scope, content_field \\ "df_content")
+
+  def content_terms(scope, content_field) when is_binary(scope) do
+    scope
+    |> TemplateCache.list_by_scope!()
+    |> Enum.flat_map(&content_terms(&1, content_field))
+    |> Map.new()
+  end
+
+  def content_terms(%{content: content}, content_field) do
     content
     |> Format.flatten_content_fields()
     |> Enum.flat_map(fn
