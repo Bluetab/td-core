@@ -86,7 +86,7 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  def field_mapping(%{"name" => name, "type" => type}) when type not in @disabled_field_types do
+  def field_mapping(%{"name" => name, "type" => type}) when type in @disabled_field_types do
     {name, %{enabled: false}}
   end
 
