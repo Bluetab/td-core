@@ -50,6 +50,7 @@ defmodule TdCore.Search.ElasticDocument do
         do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
 
       defdelegate searchable_fields(scope, content_field \\ "df_content"), to: ElasticDocument
+      defdelegate add_locales(fields), to: ElasticDocument
     end
   end
 
@@ -150,6 +151,23 @@ defmodule TdCore.Search.ElasticDocument do
         do: {"#{name}", fields_properties},
         else: {"#{name}_#{locale}", fields_properties}
     end)
+  end
+
+  def add_locales(fields) when is_list(fields) do
+    {:ok, default_locale} = I18nCache.get_default_locale()
+    locales_applicable = I18nCache.get_active_locales!() -- [default_locale]
+    binary_fields = Enum.map(fields, &"#{&1}")
+
+    case locales_applicable do
+      [] ->
+        binary_fields
+
+      [_ | _] ->
+        binary_fields ++
+          Enum.flat_map(fields, fn field ->
+            Enum.map(locales_applicable, fn locale -> "#{field}_#{locale}" end)
+          end)
+    end
   end
 
   def maybe_boost(field_tuple, %{"boost" => boost}) when boost in ["", "1"], do: field_tuple

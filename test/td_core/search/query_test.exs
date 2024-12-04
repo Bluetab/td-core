@@ -12,13 +12,13 @@ defmodule TdCore.Search.QueryTest do
 
   describe "build_query/1" do
     test "returns a boolean query with a match_all filter by default" do
-      assert Query.build_query(@match_all, %{}, @aggs) == %{bool: %{must: @match_all}}
+      assert Query.build_query(@match_all, %{}, %{aggs: @aggs}) == %{bool: %{must: @match_all}}
     end
 
     test "returns a boolean query with user-defined filters" do
       params = %{"must" => %{"type" => ["foo"]}}
 
-      assert Query.build_query(@match_all, params, @aggs) == %{
+      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
                bool: %{
                  must: %{term: %{"type.raw" => "foo"}}
                }
@@ -26,7 +26,7 @@ defmodule TdCore.Search.QueryTest do
 
       params = %{"must" => %{"type" => ["foo"], "status" => ["bar", "baz"]}}
 
-      assert Query.build_query(@match_all, params, @aggs) == %{
+      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
                bool: %{
                  must: [
                    %{term: %{"type.raw" => "foo"}},
@@ -39,7 +39,7 @@ defmodule TdCore.Search.QueryTest do
     test "returns a simple_query_string for the search term" do
       params = %{"query" => "foo"}
 
-      assert Query.build_query(@match_all, params, @aggs) == %{
+      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
                bool: %{
                  must: %{simple_query_string: %{query: "foo*"}}
                }
@@ -52,7 +52,7 @@ defmodule TdCore.Search.QueryTest do
         "query" => "foo"
       }
 
-      assert Query.build_query(@match_all, params, @aggs) == %{
+      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
                bool: %{
                  must: [%{simple_query_string: %{query: "foo*"}}, %{term: %{"type.raw" => "foo"}}]
                }
