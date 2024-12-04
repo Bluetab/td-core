@@ -69,6 +69,11 @@ defmodule TdCore.Search.Query do
     acc
   end
 
+  defp reduce_query({"query", query}, acc, %{fields: [_ | _] = fields}) do
+    must = %{multi_match: %{query: query, type: "phrase_prefix", fields: fields}}
+    Map.update(acc, :must, must, &[must | List.wrap(&1)])
+  end
+
   defp reduce_query({"query", query}, acc, _) do
     must = %{simple_query_string: %{query: maybe_wildcard(query)}}
     Map.update(acc, :must, must, &[must | List.wrap(&1)])

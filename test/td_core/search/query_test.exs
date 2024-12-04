@@ -59,6 +59,22 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
+    test "returns a multi_match query when fields are provided" do
+      params = %{
+        "must" => %{"type" => ["foo"]},
+        "query" => "foo"
+      }
+
+      assert Query.build_query(@match_all, params, %{aggs: @aggs, fields: ["name^3"]}) == %{
+               bool: %{
+                 must: [
+                   %{multi_match: %{query: "foo", type: "phrase_prefix", fields: ["name^3"]}},
+                   %{term: %{"type.raw" => "foo"}}
+                 ]
+               }
+             }
+    end
+
     test "with and without clauses" do
       params = %{
         "with" => ["foo", "bar"],
