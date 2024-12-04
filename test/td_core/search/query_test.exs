@@ -68,7 +68,15 @@ defmodule TdCore.Search.QueryTest do
       assert Query.build_query(@match_all, params, %{aggs: @aggs, fields: ["name^3"]}) == %{
                bool: %{
                  must: [
-                   %{multi_match: %{query: "foo", type: "phrase_prefix", fields: ["name^3"]}},
+                   %{
+                     multi_match: %{
+                       query: "foo",
+                       type: "phrase_prefix",
+                       fields: ["name^3"],
+                       lenient: true,
+                       slop: 2
+                     }
+                   },
                    %{term: %{"type.raw" => "foo"}}
                  ]
                }

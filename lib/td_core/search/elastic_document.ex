@@ -15,7 +15,8 @@ defmodule TdCore.Search.ElasticDocument do
   @raw %{raw: %{type: "keyword", null_value: ""}}
   @disabled_field_types ~w(table url copy image)
   @entity_types ~w(domain hierarchy system user)
-  @excluded_search_field_types @disabled_field_types ++ @entity_types
+  @date_types ~w(date datetime)
+  @excluded_search_field_types @disabled_field_types ++ @entity_types ++ @date_types
 
   defmacro __using__(_) do
     quote do
