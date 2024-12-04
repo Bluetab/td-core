@@ -49,7 +49,7 @@ defmodule TdCore.Search.ElasticDocument do
       def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
         do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
 
-      defdelegate searchable_fields(scope), to: ElasticDocument
+      defdelegate searchable_fields(scope, content_field \\ "df_content"), to: ElasticDocument
     end
   end
 
@@ -249,7 +249,7 @@ defmodule TdCore.Search.ElasticDocument do
     }
   end
 
-  def searchable_fields(scope) do
+  def searchable_fields(scope, content_field) do
     scope
     |> TemplateCache.list_by_scope!()
     |> Enum.flat_map(fn %{content: content} -> Format.flatten_content_fields(content) end)
@@ -259,7 +259,7 @@ defmodule TdCore.Search.ElasticDocument do
       _other -> false
     end)
     |> Enum.flat_map(&add_locales_content_mapping/1)
-    |> Enum.map(fn {field, _} -> field end)
+    |> Enum.map(fn {field, _} -> "#{content_field}.#{field}" end)
     |> Enum.uniq()
   end
 end
