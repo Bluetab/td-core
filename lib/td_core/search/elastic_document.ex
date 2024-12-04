@@ -13,9 +13,9 @@ defmodule TdCore.Search.ElasticDocument do
   alias TdDfLib.Format
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
-  @disabled_field_types ~w(table url copy)
+  @disabled_field_types ~w(table url copy image)
   @entity_types ~w(domain hierarchy system user)
-  @fitrable_types @disabled_field_types ++ @entity_types
+  @excluded_search_field_types @disabled_field_types ++ @entity_types
 
   defmacro __using__(_) do
     quote do
@@ -254,12 +254,15 @@ defmodule TdCore.Search.ElasticDocument do
     |> TemplateCache.list_by_scope!()
     |> Enum.flat_map(fn %{content: content} -> Format.flatten_content_fields(content) end)
     |> Enum.reject(fn
-      %{"type" => type} -> type in @fitrable_types
       %{"values" => %{}} -> true
+      %{"widget" => "identifier"} -> true
+      %{"type" => type} -> type in @excluded_search_field_types
       _other -> false
     end)
-    |> Enum.flat_map(&add_locales_content_mapping/1)
-    |> Enum.map(fn {field, _} -> "#{content_field}.#{field}" end)
+    |> Enum.flat_map(fn %{"name" => name} = properties ->
+      add_locales_content_mapping({name, properties})
+    end)
+    |> Enum.map(fn {name, _} -> "#{content_field}.#{name}" end)
     |> Enum.uniq()
   end
 end
