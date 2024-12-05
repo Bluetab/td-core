@@ -73,12 +73,10 @@ defmodule TdCore.Search.Query do
     must = %{
       multi_match: %{
         query: query,
-        type: "best_fields",
+        type: "phrase_prefix",
         fields: fields,
         lenient: true,
-        slop: 2,
-        fuzziness: "AUTO",
-        operator: "AND"
+        slop: 2
       }
     }
 

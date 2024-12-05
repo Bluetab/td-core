@@ -71,12 +71,10 @@ defmodule TdCore.Search.QueryTest do
                    %{
                      multi_match: %{
                        query: "foo",
-                       type: "best_fields",
+                       type: "phrase_prefix",
                        fields: ["name^3"],
                        lenient: true,
-                       slop: 2,
-                       fuzziness: "AUTO",
-                       operator: "AND"
+                       slop: 2
                      }
                    },
                    %{term: %{"type.raw" => "foo"}}

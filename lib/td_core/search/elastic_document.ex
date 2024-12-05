@@ -164,10 +164,7 @@ defmodule TdCore.Search.ElasticDocument do
         binary_fields
 
       [_ | _] ->
-        binary_fields ++
-          Enum.flat_map(fields, fn field ->
-            Enum.map(locales_applicable, fn locale -> "#{field}_#{locale}" end)
-          end)
+        binary_fields ++ apply_locales(locales_applicable, fields)
     end
   end
 
@@ -283,5 +280,11 @@ defmodule TdCore.Search.ElasticDocument do
     end)
     |> Enum.map(fn {name, _} -> "#{content_field}.#{name}" end)
     |> Enum.uniq()
+  end
+
+  defp apply_locales(locales, fields) do
+    Enum.flat_map(fields, fn field ->
+      Enum.map(locales, fn locale -> "#{field}_#{locale}" end)
+    end)
   end
 end
