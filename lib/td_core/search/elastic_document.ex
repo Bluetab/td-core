@@ -57,14 +57,13 @@ defmodule TdCore.Search.ElasticDocument do
 
   def get_dynamic_mappings(scope, type \\ nil) do
     scope
-    |> TemplateCache.list_by_scope!()
-    |> Enum.flat_map(&get_mappings(&1, type))
+    |> dynamic_fields_for_scope()
+    |> get_mappings(type)
     |> Enum.into(%{})
   end
 
-  def get_mappings(%{content: content}, nil) do
-    content
-    |> Format.flatten_content_fields()
+  def get_mappings(fields, nil) do
+    fields
     |> Enum.map(fn field ->
       field
       |> field_mapping
@@ -75,9 +74,8 @@ defmodule TdCore.Search.ElasticDocument do
     |> List.flatten()
   end
 
-  def get_mappings(%{content: content}, type) do
-    content
-    |> Format.flatten_content_fields()
+  def get_mappings(fields, type) do
+    fields
     |> Enum.filter(&(Map.get(&1, "type") == type))
     |> Enum.map(fn field ->
       field
@@ -195,14 +193,13 @@ defmodule TdCore.Search.ElasticDocument do
 
   def content_terms(scope, content_field) when is_binary(scope) do
     scope
-    |> TemplateCache.list_by_scope!()
-    |> Enum.flat_map(&content_terms(&1, content_field))
+    |> dynamic_fields_for_scope()
+    |> content_terms(content_field)
     |> Map.new()
   end
 
-  def content_terms(%{content: content}, content_field) do
-    content
-    |> Format.flatten_content_fields()
+  def content_terms(fields, content_field) when is_list(fields) do
+    fields
     |> Enum.map(fn
       %{"name" => field, "type" => "domain"} ->
         {field,
@@ -267,8 +264,7 @@ defmodule TdCore.Search.ElasticDocument do
 
   def searchable_fields(scope, content_field) do
     scope
-    |> TemplateCache.list_by_scope!()
-    |> Enum.flat_map(fn %{content: content} -> Format.flatten_content_fields(content) end)
+    |> dynamic_fields_for_scope()
     |> Enum.reject(fn
       %{"values" => %{}} -> true
       %{"widget" => "identifier"} -> true
@@ -280,6 +276,12 @@ defmodule TdCore.Search.ElasticDocument do
     end)
     |> Enum.map(fn {name, _} -> "#{content_field}.#{name}" end)
     |> Enum.uniq()
+  end
+
+  defp dynamic_fields_for_scope(scope) do
+    scope
+    |> TemplateCache.list_by_scope!()
+    |> Enum.flat_map(fn %{content: content} -> Format.flatten_content_fields(content) end)
   end
 
   defp apply_locales(locales, fields) do
