@@ -95,6 +95,27 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
+    test "returns a simple_query_string query when clauses are provided" do
+      params = %{
+        "must" => %{"type" => ["foo"]},
+        "query" => "foo"
+      }
+
+      simple_query_string = %{simple_query_string: %{fields: ["name^3"]}}
+
+      assert Query.build_query(@match_all, params, %{
+               aggs: @aggs,
+               clauses: [simple_query_string]
+             }) == %{
+               bool: %{
+                 must: [
+                   %{simple_query_string: %{query: "foo*", fields: ["name^3"]}},
+                   %{term: %{"type.raw" => "foo"}}
+                 ]
+               }
+             }
+    end
+
     test "with and without clauses" do
       params = %{
         "with" => ["foo", "bar"],

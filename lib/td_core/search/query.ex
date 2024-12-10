@@ -160,4 +160,9 @@ defmodule TdCore.Search.Query do
     multi_match = Map.put(multi_match, :query, query)
     %{clause | multi_match: multi_match}
   end
+
+  defp query_for_clause(query, %{simple_query_string: simple_query_string} = clause) do
+    simple_query_string = Map.put(simple_query_string, :query, maybe_wildcard(query))
+    %{clause | simple_query_string: simple_query_string}
+  end
 end
