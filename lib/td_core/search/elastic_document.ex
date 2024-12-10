@@ -7,10 +7,9 @@ defmodule TdCore.Search.ElasticDocument do
   def missing_term_name, do: @missing_term_name
 
   alias TdCache.I18nCache
-  alias TdCache.TemplateCache
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocument
-  alias TdDfLib.Format
+  alias TdDfLib.Templates
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
   @disabled_field_types ~w(table url copy image)
@@ -25,6 +24,7 @@ defmodule TdCore.Search.ElasticDocument do
       alias TdCore.Search.DocumentMapping
       alias TdCore.Search.ElasticDocument
       alias TdDfLib.Format
+      alias TdDfLib.Templates
 
       @raw %{raw: %{type: "keyword", null_value: ""}}
       @text %{text: %{type: "text"}}
@@ -47,17 +47,23 @@ defmodule TdCore.Search.ElasticDocument do
       def add_locales_content_mapping(fields_properties),
         do: ElasticDocument.add_locales_content_mapping(fields_properties)
 
-      def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
-        do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
+      defdelegate merge_dynamic_aggregations(
+                    static_aggs,
+                    scope_or_content_schema,
+                    content_field \\ "df_content"
+                  ),
+                  to: ElasticDocument
 
-      defdelegate searchable_fields(scope, content_field \\ "df_content"), to: ElasticDocument
+      defdelegate dynamic_search_fields(scope_or_schema, content_field \\ "df_content"),
+        to: ElasticDocument
+
       defdelegate add_locales(fields), to: ElasticDocument
     end
   end
 
   def get_dynamic_mappings(scope, type \\ nil) do
     scope
-    |> dynamic_fields_for_scope()
+    |> Templates.content_schema_for_scope()
     |> get_mappings(type)
     |> Enum.into(%{})
   end
@@ -183,22 +189,64 @@ defmodule TdCore.Search.ElasticDocument do
 
   def maybe_disable_search(field_tuple, _), do: field_tuple
 
-  def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content") do
+  def merge_dynamic_aggregations(
+        static_aggs,
+        scope_or_content_schema,
+        content_field \\ "df_content"
+      )
+
+  def merge_dynamic_aggregations(static_aggs, scope, content_field)
+      when is_binary(scope) do
     scope
+    |> Templates.content_schema_for_scope()
     |> content_terms(content_field)
     |> Map.merge(static_aggs)
   end
 
-  def content_terms(content_or_scope, content_field \\ "df_content")
-
-  def content_terms(scope, content_field) when is_binary(scope) do
-    scope
-    |> dynamic_fields_for_scope()
+  def merge_dynamic_aggregations(static_aggs, content_schema, content_field)
+      when is_list(content_schema) do
+    content_schema
     |> content_terms(content_field)
-    |> Map.new()
+    |> Map.merge(static_aggs)
   end
 
-  def content_terms(fields, content_field) when is_list(fields) do
+  def nested_agg(field, content_field, field_type) do
+    %{
+      nested: %{path: "#{content_field}.#{field}"},
+      aggs: %{
+        distinct_search: %{
+          terms: %{
+            field: "#{content_field}.#{field}.external_id.raw",
+            size: Cluster.get_size_field(field_type)
+          }
+        }
+      }
+    }
+  end
+
+  def dynamic_search_fields(scope, content_field) when is_binary(scope) do
+    scope
+    |> Templates.content_schema_for_scope()
+    |> get_dynamic_search_fields(content_field)
+  end
+
+  def dynamic_search_fields(content_schema, content_field) when is_list(content_schema) do
+    get_dynamic_search_fields(content_schema, content_field)
+  end
+
+  defp get_dynamic_search_fields(content_schema, content_field) do
+    content_schema
+    |> Enum.reject(fn
+      %{"values" => %{}} -> true
+      %{"widget" => "identifier"} -> true
+      %{"type" => type} -> type in @excluded_search_field_types
+      _other -> false
+    end)
+    |> Enum.map(fn %{"name" => name} -> "#{content_field}.#{name}" end)
+    |> Enum.uniq()
+  end
+
+  defp content_terms(fields, content_field) when is_list(fields) do
     fields
     |> Enum.map(fn
       %{"name" => field, "type" => "domain"} ->
@@ -246,42 +294,7 @@ defmodule TdCore.Search.ElasticDocument do
         nil
     end)
     |> Enum.filter(& &1)
-  end
-
-  def nested_agg(field, content_field, field_type) do
-    %{
-      nested: %{path: "#{content_field}.#{field}"},
-      aggs: %{
-        distinct_search: %{
-          terms: %{
-            field: "#{content_field}.#{field}.external_id.raw",
-            size: Cluster.get_size_field(field_type)
-          }
-        }
-      }
-    }
-  end
-
-  def searchable_fields(scope, content_field) do
-    scope
-    |> dynamic_fields_for_scope()
-    |> Enum.reject(fn
-      %{"values" => %{}} -> true
-      %{"widget" => "identifier"} -> true
-      %{"type" => type} -> type in @excluded_search_field_types
-      _other -> false
-    end)
-    |> Enum.flat_map(fn %{"name" => name} = properties ->
-      add_locales_content_mapping({name, properties})
-    end)
-    |> Enum.map(fn {name, _} -> "#{content_field}.#{name}" end)
-    |> Enum.uniq()
-  end
-
-  defp dynamic_fields_for_scope(scope) do
-    scope
-    |> TemplateCache.list_by_scope!()
-    |> Enum.flat_map(fn %{content: content} -> Format.flatten_content_fields(content) end)
+    |> Map.new()
   end
 
   defp apply_locales(locales, fields) do
