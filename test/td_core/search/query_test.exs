@@ -59,13 +59,25 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
-    test "returns a multi_match query when fields are provided" do
+    test "returns a multi_match query when clauses are provided" do
       params = %{
         "must" => %{"type" => ["foo"]},
         "query" => "foo"
       }
 
-      assert Query.build_query(@match_all, params, %{aggs: @aggs, fields: ["name^3"]}) == %{
+      multi_match_phrase_prefix = %{
+        multi_match: %{
+          type: "phrase_prefix",
+          fields: ["name^3"],
+          lenient: true,
+          slop: 2
+        }
+      }
+
+      assert Query.build_query(@match_all, params, %{
+               aggs: @aggs,
+               clauses: [multi_match_phrase_prefix]
+             }) == %{
                bool: %{
                  must: [
                    %{

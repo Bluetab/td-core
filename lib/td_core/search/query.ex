@@ -69,17 +69,8 @@ defmodule TdCore.Search.Query do
     acc
   end
 
-  defp reduce_query({"query", query}, acc, %{fields: [_ | _] = fields}) do
-    must = %{
-      multi_match: %{
-        query: query,
-        type: "phrase_prefix",
-        fields: fields,
-        lenient: true,
-        slop: 2
-      }
-    }
-
+  defp reduce_query({"query", query}, acc, %{clauses: [single_clause]}) do
+    must = query_for_clause(query, single_clause)
     Map.update(acc, :must, must, &[must | List.wrap(&1)])
   end
 
@@ -163,5 +154,10 @@ defmodule TdCore.Search.Query do
       end)
 
     %{bool: bool}
+  end
+
+  defp query_for_clause(query, %{multi_match: multi_match} = clause) do
+    multi_match = Map.put(multi_match, :query, query)
+    %{clause | multi_match: multi_match}
   end
 end
