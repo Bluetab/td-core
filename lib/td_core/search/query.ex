@@ -8,11 +8,7 @@ defmodule TdCore.Search.Query do
   @match_all %{match_all: %{}}
   @match_none %{match_none: %{}}
 
-  def build_query(filters, params, aggs \\ %{})
-
-  def build_query(filters, params, aggs) do
-    query = Map.get(params, "query")
-
+  def build_query(filters, params, query \\ %{}) do
     filters =
       filters
       |> List.wrap()
@@ -26,9 +22,8 @@ defmodule TdCore.Search.Query do
 
     params
     |> Map.take(["must", "query", "without", "with", "must_not", "filters"])
-    |> Enum.reduce(filters, &reduce_query(&1, &2, aggs))
+    |> Enum.reduce(filters, &reduce_query(&1, &2, query))
     |> maybe_optimize()
-    |> add_query_should(query)
     |> bool_query()
   end
 
@@ -44,8 +39,9 @@ defmodule TdCore.Search.Query do
     Map.update(query, key, [clause], &[clause | &1])
   end
 
-  defp reduce_query({"filters", %{} = filters}, %{} = acc, aggs)
+  defp reduce_query({"filters", %{} = filters}, %{} = acc, query)
        when map_size(filters) > 0 do
+    aggs = Map.get(query, :aggs, %{})
     Filters.build_filters(filters, aggs, acc)
   end
 
@@ -53,8 +49,9 @@ defmodule TdCore.Search.Query do
     acc
   end
 
-  defp reduce_query({"must", %{} = must}, %{} = acc, aggs)
+  defp reduce_query({"must", %{} = must}, %{} = acc, query)
        when map_size(must) > 0 do
+    aggs = Map.get(query, :aggs, %{})
     Filters.build_filters(must, aggs, acc)
   end
 
@@ -62,13 +59,19 @@ defmodule TdCore.Search.Query do
     acc
   end
 
-  defp reduce_query({"must_not", %{} = fields}, %{} = acc, aggs)
+  defp reduce_query({"must_not", %{} = fields}, %{} = acc, query)
        when map_size(fields) > 0 do
+    aggs = Map.get(query, :aggs, %{})
     Filters.build_filters(%{"must_not" => fields}, aggs, acc)
   end
 
   defp reduce_query({"must_not", %{}}, %{} = acc, _) do
     acc
+  end
+
+  defp reduce_query({"query", query}, acc, %{clauses: [single_clause]}) do
+    must = query_for_clause(query, single_clause)
+    Map.update(acc, :must, must, &[must | List.wrap(&1)])
   end
 
   defp reduce_query({"query", query}, acc, _) do
@@ -92,22 +95,6 @@ defmodule TdCore.Search.Query do
       filter = exists(field)
       Map.update(acc, :must, filter, &[filter | List.wrap(&1)])
     end)
-  end
-
-  defp add_query_should(filters, nil), do: filters
-
-  defp add_query_should(filters, query) do
-    should = [
-      %{
-        multi_match: %{
-          query: maybe_wildcard(query),
-          type: "best_fields",
-          operator: "and"
-        }
-      }
-    ]
-
-    Map.put(filters, :should, should)
   end
 
   defp maybe_optimize(%{must: _} = bool) do
@@ -167,5 +154,15 @@ defmodule TdCore.Search.Query do
       end)
 
     %{bool: bool}
+  end
+
+  defp query_for_clause(query, %{multi_match: multi_match} = clause) do
+    multi_match = Map.put(multi_match, :query, query)
+    %{clause | multi_match: multi_match}
+  end
+
+  defp query_for_clause(query, %{simple_query_string: simple_query_string} = clause) do
+    simple_query_string = Map.put(simple_query_string, :query, maybe_wildcard(query))
+    %{clause | simple_query_string: simple_query_string}
   end
 end
