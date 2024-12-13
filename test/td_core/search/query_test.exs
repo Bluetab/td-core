@@ -18,7 +18,7 @@ defmodule TdCore.Search.QueryTest do
     test "returns a boolean query with user-defined filters" do
       params = %{"must" => %{"type" => ["foo"]}}
 
-      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
+      assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
                  must: %{term: %{"type.raw" => "foo"}}
                }
@@ -26,7 +26,7 @@ defmodule TdCore.Search.QueryTest do
 
       params = %{"must" => %{"type" => ["foo"], "status" => ["bar", "baz"]}}
 
-      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
+      assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
                  must: [
                    %{term: %{"type.raw" => "foo"}},
@@ -39,7 +39,7 @@ defmodule TdCore.Search.QueryTest do
     test "returns a simple_query_string for the search term" do
       params = %{"query" => "foo"}
 
-      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
+      assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
                  must: %{simple_query_string: %{query: "foo*"}}
                }
@@ -52,7 +52,7 @@ defmodule TdCore.Search.QueryTest do
         "query" => "foo"
       }
 
-      assert Query.build_query(@match_all, params, %{aggs: @aggs}) == %{
+      assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
                  must: [%{simple_query_string: %{query: "foo*"}}, %{term: %{"type.raw" => "foo"}}]
                }
@@ -74,10 +74,10 @@ defmodule TdCore.Search.QueryTest do
         }
       }
 
-      assert Query.build_query(@match_all, params, %{
+      assert Query.build_query(@match_all, params,
                aggs: @aggs,
                clauses: [multi_match_phrase_prefix]
-             }) == %{
+             ) == %{
                bool: %{
                  must: [
                    %{
@@ -103,10 +103,10 @@ defmodule TdCore.Search.QueryTest do
 
       simple_query_string = %{simple_query_string: %{fields: ["name^3"]}}
 
-      assert Query.build_query(@match_all, params, %{
+      assert Query.build_query(@match_all, params,
                aggs: @aggs,
                clauses: [simple_query_string]
-             }) == %{
+             ) == %{
                bool: %{
                  must: [
                    %{simple_query_string: %{query: "foo*", fields: ["name^3"]}},
