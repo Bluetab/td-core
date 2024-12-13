@@ -39,9 +39,9 @@ defmodule TdCore.Search.Query do
     Map.update(query, key, [clause], &[clause | &1])
   end
 
-  defp reduce_query({"filters", %{} = filters}, %{} = acc, query)
+  defp reduce_query({"filters", %{} = filters}, %{} = acc, opts)
        when map_size(filters) > 0 do
-    aggs = Map.get(query, :aggs, %{})
+    aggs = Keyword.get(opts, :aggs, %{})
     Filters.build_filters(filters, aggs, acc)
   end
 
