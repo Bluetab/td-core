@@ -7,12 +7,16 @@ defmodule TdCore.Search.ElasticDocument do
   def missing_term_name, do: @missing_term_name
 
   alias TdCache.I18nCache
-  alias TdCache.TemplateCache
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocument
-  alias TdDfLib.Format
+  alias TdDfLib.Templates
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
+  @text_like_types ~w(text search_as_you_type)
+  @disabled_field_types ~w(table url copy image)
+  @entity_types ~w(domain hierarchy system user)
+  @date_types ~w(date datetime)
+  @excluded_search_field_types @disabled_field_types ++ @entity_types ++ @date_types
 
   defmacro __using__(_) do
     quote do
@@ -21,6 +25,7 @@ defmodule TdCore.Search.ElasticDocument do
       alias TdCore.Search.DocumentMapping
       alias TdCore.Search.ElasticDocument
       alias TdDfLib.Format
+      alias TdDfLib.Templates
 
       @raw %{raw: %{type: "keyword", null_value: ""}}
       @text %{text: %{type: "text"}}
@@ -40,24 +45,29 @@ defmodule TdCore.Search.ElasticDocument do
       def add_locales_fields_mapping(mapping, fields),
         do: ElasticDocument.add_locales_fields_mapping(mapping, fields)
 
-      def add_locales_content_mapping(fields_properties),
-        do: ElasticDocument.add_locales_content_mapping(fields_properties)
+      defdelegate merge_dynamic_aggregations(
+                    static_aggs,
+                    scope_or_content_schema,
+                    content_field \\ "df_content"
+                  ),
+                  to: ElasticDocument
 
-      def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content"),
-        do: ElasticDocument.merge_dynamic_fields(static_aggs, scope, content_field)
+      defdelegate dynamic_search_fields(scope_or_schema, content_field \\ "df_content"),
+        to: ElasticDocument
+
+      defdelegate add_locales(fields), to: ElasticDocument
     end
   end
 
   def get_dynamic_mappings(scope, type \\ nil) do
     scope
-    |> TemplateCache.list_by_scope!()
-    |> Enum.flat_map(&get_mappings(&1, type))
+    |> Templates.content_schema_for_scope()
+    |> get_mappings(type)
     |> Enum.into(%{})
   end
 
-  def get_mappings(%{content: content}, nil) do
-    content
-    |> Format.flatten_content_fields()
+  def get_mappings(fields, nil) do
+    fields
     |> Enum.map(fn field ->
       field
       |> field_mapping
@@ -68,9 +78,8 @@ defmodule TdCore.Search.ElasticDocument do
     |> List.flatten()
   end
 
-  def get_mappings(%{content: content}, type) do
-    content
-    |> Format.flatten_content_fields()
+  def get_mappings(fields, type) do
+    fields
     |> Enum.filter(&(Map.get(&1, "type") == type))
     |> Enum.map(fn field ->
       field
@@ -80,15 +89,7 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  def field_mapping(%{"name" => name, "type" => "table"}) do
-    {name, %{enabled: false}}
-  end
-
-  def field_mapping(%{"name" => name, "type" => "url"}) do
-    {name, %{enabled: false}}
-  end
-
-  def field_mapping(%{"name" => name, "type" => "copy"}) do
+  def field_mapping(%{"name" => name, "type" => type}) when type in @disabled_field_types do
     {name, %{enabled: false}}
   end
 
@@ -126,33 +127,30 @@ defmodule TdCore.Search.ElasticDocument do
 
   def add_locales_fields_mapping(mapping, fields) do
     {:ok, default_locale} = I18nCache.get_default_locale()
+    locales = Enum.reject(I18nCache.get_active_locales!(), &(&1 == default_locale))
 
-    locales =
-      I18nCache.get_active_locales!()
-      |> Enum.reject(&(&1 == default_locale))
-
-    fields
-    |> Enum.map(fn field ->
-      field_property = Map.get(mapping, field)
-
-      locales
-      |> Enum.reduce(%{}, fn locale, acc ->
-        Map.put(acc, :"#{field}_#{locale}", field_property)
-      end)
+    mapping
+    |> Map.take(fields)
+    |> Enum.map(&add_language_analyzer(&1, default_locale))
+    |> Enum.flat_map(fn {field, mapping} ->
+      Enum.map(locales, &add_language_analyzer({:"#{field}_#{&1}", mapping}, &1))
     end)
-    |> Enum.reduce(%{}, &Map.merge(&1, &2))
+    |> Map.new()
     |> Map.merge(mapping)
   end
 
-  def add_locales_content_mapping({name, fields_properties}) do
+  def add_locales(fields) when is_list(fields) do
     {:ok, default_locale} = I18nCache.get_default_locale()
+    locales_applicable = I18nCache.get_active_locales!() -- [default_locale]
+    binary_fields = Enum.map(fields, &"#{&1}")
 
-    I18nCache.get_active_locales!()
-    |> Enum.map(fn locale ->
-      if locale == default_locale,
-        do: {"#{name}", fields_properties},
-        else: {"#{name}_#{locale}", fields_properties}
-    end)
+    case locales_applicable do
+      [] ->
+        binary_fields
+
+      [_ | _] ->
+        binary_fields ++ apply_locales(locales_applicable, fields)
+    end
   end
 
   def maybe_boost(field_tuple, %{"boost" => boost}) when boost in ["", "1"], do: field_tuple
@@ -172,69 +170,25 @@ defmodule TdCore.Search.ElasticDocument do
 
   def maybe_disable_search(field_tuple, _), do: field_tuple
 
-  def merge_dynamic_fields(static_aggs, scope, content_field \\ "df_content") do
-    TemplateCache.list_by_scope!(scope)
-    |> Enum.flat_map(&content_terms(&1, content_field))
-    |> Map.new()
+  def merge_dynamic_aggregations(
+        static_aggs,
+        scope_or_content_schema,
+        content_field \\ "df_content"
+      )
+
+  def merge_dynamic_aggregations(static_aggs, scope, content_field)
+      when is_binary(scope) do
+    scope
+    |> Templates.content_schema_for_scope()
+    |> content_terms(content_field)
     |> Map.merge(static_aggs)
   end
 
-  def content_terms(%{content: content}, content_field \\ "df_content") do
-    content
-    |> Format.flatten_content_fields()
-    |> Enum.flat_map(fn
-      %{"name" => field, "type" => "domain"} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}",
-               size: Cluster.get_size_field("domain")
-             },
-             meta: %{type: "domain"}
-           }}
-        ]
-
-      %{"name" => field, "type" => "hierarchy"} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}.raw",
-               size: Cluster.get_size_field("hierarchy")
-             },
-             meta: %{type: "hierarchy"}
-           }}
-        ]
-
-      %{"name" => field, "type" => "system"} ->
-        [{field, nested_agg(field, content_field, "system")}]
-
-      %{"name" => field, "type" => "user"} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}.raw",
-               size: Cluster.get_size_field("user")
-             }
-           }}
-        ]
-
-      %{"name" => field, "values" => %{}} ->
-        [
-          {field,
-           %{
-             terms: %{
-               field: "#{content_field}.#{field}.raw",
-               size: Cluster.get_size_field("default")
-             }
-           }}
-        ]
-
-      _ ->
-        []
-    end)
+  def merge_dynamic_aggregations(static_aggs, content_schema, content_field)
+      when is_list(content_schema) do
+    content_schema
+    |> content_terms(content_field)
+    |> Map.merge(static_aggs)
   end
 
   def nested_agg(field, content_field, field_type) do
@@ -250,4 +204,101 @@ defmodule TdCore.Search.ElasticDocument do
       }
     }
   end
+
+  def dynamic_search_fields(scope, content_field) when is_binary(scope) do
+    scope
+    |> Templates.content_schema_for_scope()
+    |> get_dynamic_search_fields(content_field)
+  end
+
+  def dynamic_search_fields(content_schema, content_field) when is_list(content_schema) do
+    get_dynamic_search_fields(content_schema, content_field)
+  end
+
+  defp get_dynamic_search_fields(content_schema, content_field) do
+    content_schema
+    |> Enum.reject(fn
+      %{"values" => %{}} -> true
+      %{"widget" => "identifier"} -> true
+      %{"type" => type} -> type in @excluded_search_field_types
+      _other -> false
+    end)
+    |> Enum.map(fn %{"name" => name} -> "#{content_field}.#{name}" end)
+    |> Enum.uniq()
+  end
+
+  defp content_terms(fields, content_field) when is_list(fields) do
+    fields
+    |> Enum.map(fn
+      %{"name" => field, "type" => "domain"} ->
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}",
+             size: Cluster.get_size_field("domain")
+           },
+           meta: %{type: "domain"}
+         }}
+
+      %{"name" => field, "type" => "hierarchy"} ->
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}.raw",
+             size: Cluster.get_size_field("hierarchy")
+           },
+           meta: %{type: "hierarchy"}
+         }}
+
+      %{"name" => field, "type" => "system"} ->
+        {field, nested_agg(field, content_field, "system")}
+
+      %{"name" => field, "type" => "user"} ->
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}.raw",
+             size: Cluster.get_size_field("user")
+           }
+         }}
+
+      %{"name" => field, "values" => %{}} ->
+        {field,
+         %{
+           terms: %{
+             field: "#{content_field}.#{field}.raw",
+             size: Cluster.get_size_field("default")
+           }
+         }}
+
+      _ ->
+        nil
+    end)
+    |> Enum.filter(& &1)
+    |> Map.new()
+  end
+
+  defp apply_locales(locales, fields) do
+    Enum.flat_map(fields, fn field ->
+      Enum.map(locales, fn locale -> "#{field}_#{locale}" end)
+    end)
+  end
+
+  defp add_locales_content_mapping({name, mapping}) do
+    {:ok, default_locale} = I18nCache.get_default_locale()
+
+    Enum.map(I18nCache.get_active_locales!(), fn locale ->
+      if locale == default_locale,
+        do: add_language_analyzer({"#{name}", mapping}, locale),
+        else: add_language_analyzer({"#{name}_#{locale}", mapping}, locale)
+    end)
+  end
+
+  defp add_language_analyzer(field_mapping, "en"), do: field_mapping
+
+  defp add_language_analyzer({field, %{type: type} = mapping}, "es")
+       when type in @text_like_types,
+       do: {field, Map.put(mapping, :analyzer, :spanish_analyzer)}
+
+  defp add_language_analyzer(field_mapping, _lang), do: field_mapping
 end
