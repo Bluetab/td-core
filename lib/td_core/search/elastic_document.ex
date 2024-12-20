@@ -12,6 +12,7 @@ defmodule TdCore.Search.ElasticDocument do
   alias TdDfLib.Templates
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
+  @text_like_types ~w(text search_as_you_type)
   @disabled_field_types ~w(table url copy image)
   @entity_types ~w(domain hierarchy system user)
   @date_types ~w(date datetime)
@@ -43,9 +44,6 @@ defmodule TdCore.Search.ElasticDocument do
 
       def add_locales_fields_mapping(mapping, fields),
         do: ElasticDocument.add_locales_fields_mapping(mapping, fields)
-
-      def add_locales_content_mapping(fields_properties),
-        do: ElasticDocument.add_locales_content_mapping(fields_properties)
 
       defdelegate merge_dynamic_aggregations(
                     static_aggs,
@@ -129,33 +127,16 @@ defmodule TdCore.Search.ElasticDocument do
 
   def add_locales_fields_mapping(mapping, fields) do
     {:ok, default_locale} = I18nCache.get_default_locale()
+    locales = Enum.reject(I18nCache.get_active_locales!(), &(&1 == default_locale))
 
-    locales =
-      I18nCache.get_active_locales!()
-      |> Enum.reject(&(&1 == default_locale))
-
-    fields
-    |> Enum.map(fn field ->
-      field_property = Map.get(mapping, field)
-
-      locales
-      |> Enum.reduce(%{}, fn locale, acc ->
-        Map.put(acc, :"#{field}_#{locale}", field_property)
-      end)
+    mapping
+    |> Map.take(fields)
+    |> Enum.map(&add_language_analyzer(&1, default_locale))
+    |> Enum.flat_map(fn {field, mapping} ->
+      Enum.map(locales, &add_language_analyzer({:"#{field}_#{&1}", mapping}, &1))
     end)
-    |> Enum.reduce(%{}, &Map.merge(&1, &2))
+    |> Map.new()
     |> Map.merge(mapping)
-  end
-
-  def add_locales_content_mapping({name, fields_properties}) do
-    {:ok, default_locale} = I18nCache.get_default_locale()
-
-    I18nCache.get_active_locales!()
-    |> Enum.map(fn locale ->
-      if locale == default_locale,
-        do: {"#{name}", fields_properties},
-        else: {"#{name}_#{locale}", fields_properties}
-    end)
   end
 
   def add_locales(fields) when is_list(fields) do
@@ -302,4 +283,22 @@ defmodule TdCore.Search.ElasticDocument do
       Enum.map(locales, fn locale -> "#{field}_#{locale}" end)
     end)
   end
+
+  defp add_locales_content_mapping({name, mapping}) do
+    {:ok, default_locale} = I18nCache.get_default_locale()
+
+    Enum.map(I18nCache.get_active_locales!(), fn locale ->
+      if locale == default_locale,
+        do: add_language_analyzer({"#{name}", mapping}, locale),
+        else: add_language_analyzer({"#{name}_#{locale}", mapping}, locale)
+    end)
+  end
+
+  defp add_language_analyzer(field_mapping, "en"), do: field_mapping
+
+  defp add_language_analyzer({field, %{type: type} = mapping}, "es")
+       when type in @text_like_types,
+       do: {field, Map.put(mapping, :analyzer, :spanish_analyzer)}
+
+  defp add_language_analyzer(field_mapping, _lang), do: field_mapping
 end
