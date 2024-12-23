@@ -132,7 +132,6 @@ defmodule TdCore.Search.ElasticDocument do
 
     mapping
     |> Map.take(fields)
-    |> Enum.map(&add_language_analyzer(&1, default_locale))
     |> Enum.flat_map(fn {field, mapping} ->
       Enum.map(locales, &add_language_analyzer({:"#{field}_#{&1}", mapping}, &1))
     end)
@@ -290,7 +289,7 @@ defmodule TdCore.Search.ElasticDocument do
 
     Enum.map(I18nCache.get_active_locales!(), fn locale ->
       if locale == default_locale,
-        do: add_language_analyzer({"#{name}", mapping}, locale),
+        do: {"#{name}", mapping},
         else: add_language_analyzer({"#{name}_#{locale}", mapping}, locale)
     end)
   end
