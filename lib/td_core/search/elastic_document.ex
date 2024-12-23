@@ -40,8 +40,8 @@ defmodule TdCore.Search.ElasticDocument do
         ngram: %{type: "text", analyzer: "ngram"}
       }
 
-      def get_dynamic_mappings(scope, type \\ nil),
-        do: ElasticDocument.get_dynamic_mappings(scope, type)
+      def get_dynamic_mappings(scope, opts \\ []),
+        do: ElasticDocument.get_dynamic_mappings(scope, opts)
 
       def add_locales_fields_mapping(mapping, fields),
         do: ElasticDocument.add_locales_fields_mapping(mapping, fields)
@@ -60,35 +60,30 @@ defmodule TdCore.Search.ElasticDocument do
     end
   end
 
-  def get_dynamic_mappings(scope, type \\ nil) do
+  def get_dynamic_mappings(scope, opts \\ []) do
     scope
     |> Templates.content_schema_for_scope()
-    |> get_mappings(type)
+    |> get_mappings(opts)
     |> Enum.into(%{})
   end
 
-  def get_mappings(fields, nil) do
+  defp get_mappings(fields, opts) do
     fields
+    |> maybe_filter(opts[:type])
     |> Enum.map(fn field ->
       field
       |> field_mapping
       |> maybe_boost(field)
       |> maybe_disable_search(field)
-      |> add_locales_content_mapping()
+      |> add_locales_content_mapping(opts[:add_locales?])
     end)
     |> List.flatten()
   end
 
-  def get_mappings(fields, type) do
-    fields
-    |> Enum.filter(&(Map.get(&1, "type") == type))
-    |> Enum.map(fn field ->
-      field
-      |> field_mapping
-      |> maybe_boost(field)
-      |> maybe_disable_search(field)
-    end)
-  end
+  defp maybe_filter(fields, type) when is_binary(type),
+    do: Enum.filter(fields, &(Map.get(&1, "type") == type))
+
+  defp maybe_filter(fields, _type), do: fields
 
   def field_mapping(%{"name" => name, "type" => type}) when type in @disabled_field_types do
     {name, %{enabled: false}}
@@ -284,7 +279,7 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  defp add_locales_content_mapping({name, mapping}) do
+  defp add_locales_content_mapping({name, mapping}, true) do
     {:ok, default_locale} = I18nCache.get_default_locale()
 
     Enum.map(I18nCache.get_active_locales!(), fn locale ->
@@ -293,6 +288,8 @@ defmodule TdCore.Search.ElasticDocument do
         else: add_language_analyzer({"#{name}_#{locale}", mapping}, locale)
     end)
   end
+
+  defp add_locales_content_mapping(mapping, _other), do: mapping
 
   defp add_language_analyzer({field, %{type: type} = mapping}, lang)
        when type in @text_like_types and lang in @supported_langs do
