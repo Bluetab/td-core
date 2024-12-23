@@ -13,6 +13,7 @@ defmodule TdCore.Search.ElasticDocument do
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
   @text_like_types ~w(text search_as_you_type)
+  @supported_langs ~w(en es)
   @disabled_field_types ~w(table url copy image)
   @entity_types ~w(domain hierarchy system user)
   @date_types ~w(date datetime)
@@ -294,11 +295,10 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  defp add_language_analyzer(field_mapping, "es"), do: field_mapping
-
-  defp add_language_analyzer({field, %{type: type} = mapping}, "en")
-       when type in @text_like_types,
-       do: {field, Map.put(mapping, :analyzer, :english_analyzer)}
+  defp add_language_analyzer({field, %{type: type} = mapping}, lang)
+       when type in @text_like_types and lang in @supported_langs do
+    {field, Map.put(mapping, :analyzer, String.to_atom("#{lang}_analyzer"))}
+  end
 
   defp add_language_analyzer(field_mapping, _lang), do: field_mapping
 end
