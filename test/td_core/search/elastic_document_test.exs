@@ -1,8 +1,8 @@
 defmodule TdCore.Search.ElasticDocumentTest do
   use ExUnit.Case
 
-  alias TdCore.TestSupport.CacheHelpers
   alias TdCore.Search.ElasticDocument
+  alias TdCore.TestSupport.CacheHelpers
 
   @locales ~w(en es)
   @default_locale "en"
