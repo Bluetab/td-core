@@ -294,11 +294,11 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  defp add_language_analyzer(field_mapping, "en"), do: field_mapping
+  defp add_language_analyzer(field_mapping, "es"), do: field_mapping
 
-  defp add_language_analyzer({field, %{type: type} = mapping}, "es")
+  defp add_language_analyzer({field, %{type: type} = mapping}, "en")
        when type in @text_like_types,
-       do: {field, Map.put(mapping, :analyzer, :spanish_analyzer)}
+       do: {field, Map.put(mapping, :analyzer, :english_analyzer)}
 
   defp add_language_analyzer(field_mapping, _lang), do: field_mapping
 end
