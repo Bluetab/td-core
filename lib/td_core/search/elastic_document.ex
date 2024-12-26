@@ -34,11 +34,6 @@ defmodule TdCore.Search.ElasticDocument do
         raw: %{type: "keyword", null_value: ""},
         sort: %{type: "keyword", normalizer: "sortable"}
       }
-      @raw_sort_ngram %{
-        raw: %{type: "keyword", null_value: ""},
-        sort: %{type: "keyword", normalizer: "sortable"},
-        ngram: %{type: "text", analyzer: "ngram"}
-      }
 
       def get_dynamic_mappings(scope, opts \\ []),
         do: ElasticDocument.get_dynamic_mappings(scope, opts)
@@ -57,6 +52,7 @@ defmodule TdCore.Search.ElasticDocument do
         to: ElasticDocument
 
       defdelegate add_locales(fields), to: ElasticDocument
+      defdelegate apply_lang_settings(index_config), to: ElasticDocument
     end
   end
 
@@ -210,6 +206,10 @@ defmodule TdCore.Search.ElasticDocument do
     get_dynamic_search_fields(content_schema, content_field)
   end
 
+  def apply_lang_settings(index_config) do
+    update_in(index_config, [:analysis, :analyzer, :default, :filter], &(&1 ++ lang_filter()))
+  end
+
   defp get_dynamic_search_fields(content_schema, content_field) do
     content_schema
     |> Enum.reject(fn
@@ -297,4 +297,12 @@ defmodule TdCore.Search.ElasticDocument do
   end
 
   defp add_language_analyzer(field_mapping, _lang), do: field_mapping
+
+  defp lang_filter do
+    case I18nCache.get_default_locale() do
+      {:ok, "es"} -> ["es_stem"]
+      {:ok, "en"} -> ["porter_stem"]
+      _other -> ["porter_stem"]
+    end
+  end
 end
