@@ -4,8 +4,8 @@ defmodule TdCore.MixProject do
   def project do
     [
       app: :td_core,
-      version: "6.16.0",
-      elixir: "~> 1.14",
+      version: "7.0.0",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps()
@@ -27,17 +27,14 @@ defmodule TdCore.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:plug, "~> 1.15"},
-      {:jason, "~> 1.1"},
-      {:guardian, "~> 2.0"},
-      {:mox, "~> 1.0", only: :test},
+      {:plug, "~> 1.16.1"},
+      {:jason, "~> 1.4.4"},
+      {:guardian, "~> 2.3.2"},
+      {:mox, "~> 1.2", only: :test},
       {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git"},
-      {:credo, "~> 1.5", only: [:dev, :test], runtime: false},
-      {
-        :td_cluster,
-        git: "https://github.com/Bluetab/td-cluster.git", tag: "5.19.0"
-      },
-      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "6.15.0"},
+      {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
+      {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "7.0.0"},
+      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "7.0.0"},
       {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", branch: "feature/TD-5713"}
     ]
   end

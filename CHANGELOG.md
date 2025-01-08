@@ -10,6 +10,12 @@
   - Allows to pass on content schema to functions relying on templates so that we reduce calls to redis.
   - Prioritizes settings in service mappings.
 
+## [7.0.0] 2025-01-07
+
+### Changed
+
+- [TD-6911] Bump to Elixir 1.18 and updated dependencies
+
 ## [6.16.0] 2024-12-02
 
 ## Added
