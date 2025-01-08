@@ -69,7 +69,6 @@ defmodule TdCore.Search.ElasticDocument do
     |> Enum.map(fn field ->
       field
       |> field_mapping
-      |> maybe_boost(field)
       |> maybe_disable_search(field)
       |> add_locales_content_mapping(opts[:add_locales?])
     end)
@@ -105,16 +104,8 @@ defmodule TdCore.Search.ElasticDocument do
      }}
   end
 
-  def field_mapping(%{"name" => name, "type" => "enriched_text"}) do
-    {name, mapping_type("enriched_text")}
-  end
-
-  def field_mapping(%{"name" => name, "values" => values}) do
-    {name, mapping_type(values)}
-  end
-
   def field_mapping(%{"name" => name}) do
-    {name, mapping_type("string")}
+    {name, %{type: "text", fields: @raw}}
   end
 
   def add_locales_fields_mapping(mapping, fields) do
@@ -143,23 +134,6 @@ defmodule TdCore.Search.ElasticDocument do
         binary_fields ++ apply_locales(locales_applicable, fields)
     end
   end
-
-  def maybe_boost(field_tuple, %{"boost" => boost}) when boost in ["", "1"], do: field_tuple
-
-  def maybe_boost({name, field_value}, %{"boost" => boost}) do
-    {boost_float, _} = Float.parse(boost)
-    {name, Map.put(field_value, :boost, boost_float)}
-  end
-
-  def maybe_boost(field_tuple, _), do: field_tuple
-
-  def mapping_type(_default), do: %{type: "text", fields: @raw}
-
-  def maybe_disable_search({name, field_value}, %{"searchable" => false}) do
-    {name, Map.drop(field_value, [:fields])}
-  end
-
-  def maybe_disable_search(field_tuple, _), do: field_tuple
 
   def merge_dynamic_aggregations(
         static_aggs,
@@ -209,6 +183,12 @@ defmodule TdCore.Search.ElasticDocument do
   def apply_lang_settings(index_config) do
     update_in(index_config, [:analysis, :analyzer, :default, :filter], &(&1 ++ lang_filter()))
   end
+
+  defp maybe_disable_search({name, field_value}, %{"searchable" => false}) do
+    {name, Map.drop(field_value, [:fields])}
+  end
+
+  defp maybe_disable_search(field_tuple, _), do: field_tuple
 
   defp get_dynamic_search_fields(content_schema, content_field) do
     content_schema
