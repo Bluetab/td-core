@@ -64,13 +64,16 @@ defmodule TdCore.Search.ElasticDocument do
   end
 
   defp get_mappings(fields, opts) do
+    {:ok, default_locale} = I18nCache.get_default_locale()
+    active_locales = I18nCache.get_active_locales!()
+
     fields
     |> maybe_filter(opts[:type])
     |> Enum.map(fn field ->
       field
       |> field_mapping
       |> maybe_disable_search(field)
-      |> add_locales_content_mapping(opts[:add_locales?])
+      |> add_locales_content_mapping(default_locale, active_locales, opts[:add_locales?])
     end)
     |> List.flatten()
   end
@@ -259,17 +262,15 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  defp add_locales_content_mapping({name, mapping}, true) do
-    {:ok, default_locale} = I18nCache.get_default_locale()
-
-    Enum.map(I18nCache.get_active_locales!(), fn locale ->
+  defp add_locales_content_mapping({name, mapping}, default_locale, active_locales, true) do
+    Enum.map(active_locales, fn locale ->
       if locale == default_locale,
         do: {"#{name}", mapping},
         else: add_language_analyzer({"#{name}_#{locale}", mapping}, locale)
     end)
   end
 
-  defp add_locales_content_mapping(mapping, _other), do: mapping
+  defp add_locales_content_mapping(mapping, _default_locale, _active_locales, _other), do: mapping
 
   defp add_language_analyzer({field, %{type: type} = mapping}, lang)
        when type in @text_like_types and lang in @supported_langs do
