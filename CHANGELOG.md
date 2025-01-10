@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.0.1] 2025-01-10
+
+### Added
+
+- [TD-5713]:
+  - Takes specific search clauses into account.
+  - Enables fetching searchable fields from template.
+  - Allows to pass on content schema to functions relying on templates so that we reduce calls to redis.
+  - Prioritizes settings in service mappings.
+
 ## [7.0.0] 2025-01-07
 
 ### Changed
