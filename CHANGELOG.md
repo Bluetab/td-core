@@ -2,7 +2,7 @@
 
 ## [7.0.1] 2025-01-10
 
-## Added
+### Added
 
 - [TD-5713]:
   - Takes specific search clauses into account.
