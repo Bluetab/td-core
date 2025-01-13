@@ -6,6 +6,7 @@ defmodule TdCore.TestSupport.CacheHelpers do
   import ExUnit.Callbacks, only: [on_exit: 1]
 
   alias TdCache.AclCache
+  alias TdCache.I18nCache
   alias TdCache.Permissions
   alias TdCache.Redix
   alias TdCache.TaxonomyCache
@@ -59,6 +60,19 @@ defmodule TdCore.TestSupport.CacheHelpers do
     Permissions.cache_session_permissions!(session_id, exp, %{
       "domain" => domain_ids_by_permission
     })
+  end
+
+  def put_active_locales(locales) do
+    Enum.each(locales, fn locale ->
+      I18nCache.put(locale, %{message_id: "#{locale}_id", definition: "#{locale}"})
+    end)
+
+    on_exit(fn -> Redix.del!("i18n:locales:*") end)
+  end
+
+  def put_default_locale(locale) do
+    I18nCache.put_default_locale(locale)
+    on_exit(fn -> Redix.del!("i18n:locales:*") end)
   end
 
   def put_default_permissions(permissions) do

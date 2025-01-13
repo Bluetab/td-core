@@ -1,5 +1,49 @@
 # Changelog
 
+## [7.0.2] 2025-01-13
+
+### Changed
+
+- [TD-3612] Updates td-cache and df-lib versions
+
+## [7.0.1] 2025-01-10
+
+### Added
+
+- [TD-5713]:
+  - Takes specific search clauses into account.
+  - Enables fetching searchable fields from template.
+  - Allows to pass on content schema to functions relying on templates so that we reduce calls to redis.
+  - Prioritizes settings in service mappings.
+
+## [7.0.0] 2025-01-07
+
+### Changed
+
+- [TD-6911] Bump to Elixir 1.18 and updated dependencies
+
+## [6.16.0] 2024-12-02
+
+## Added
+
+- [TD-6938] When creating filters, treat "inserted_at" and "last_change_at" as ranges
+
+## [6.15.1] 2024-11-27
+
+### Changed
+
+- [TD-6908] `td-df-lib` bump version.
+
+## [6.15.0] 2024-11-13
+
+- [TD-6783] Locale dynamic mapping for content and properties
+
+## [6.14.0] 2024-10-25
+
+### Changed
+
+- [TD-6880] `td-df-lib` bump version.
+
 ## [6.13.3] 2024-10-17
 
 ### Changed
