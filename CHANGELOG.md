@@ -5,6 +5,22 @@
 ### Changed
 
 - [TD-6921] `td-df-lib` bump version.
+- 
+## [7.0.2] 2025-01-13
+
+### Changed
+
+- [TD-3612] Updates td-cache and df-lib versions
+
+## [7.0.1] 2025-01-10
+
+### Added
+
+- [TD-5713]:
+  - Takes specific search clauses into account.
+  - Enables fetching searchable fields from template.
+  - Allows to pass on content schema to functions relying on templates so that we reduce calls to redis.
+  - Prioritizes settings in service mappings.
 
 ## [7.0.0] 2025-01-07
 

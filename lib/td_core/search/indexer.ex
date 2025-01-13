@@ -23,7 +23,7 @@ defmodule TdCore.Search.Indexer do
       |> Map.put(:index_patterns, "#{alias_name}-*")
       |> Jason.encode!()
       |> put_template(Cluster, alias_name)
-      |> maybe_hot_swap(Cluster, alias_name)
+      |> maybe_hot_swap(alias_name)
 
     Tasks.log_end()
     result
@@ -112,23 +112,25 @@ defmodule TdCore.Search.Indexer do
     end)
   end
 
-  def maybe_hot_swap({:ok, _put_template_result}, _cluster, alias_name) do
+  defp maybe_hot_swap({:ok, _put_template_result}, alias_name) do
     Logger.info("Starting reindex using hot_swap...")
     hot_swap(alias_name)
   end
 
-  def maybe_hot_swap({:error, _error} = put_template_error, _cluster, _alias_name) do
+  defp maybe_hot_swap({:error, _error} = put_template_error, _alias_name) do
     Logger.warning("Index template update errors, will not reindex")
     put_template_error
   end
 
   # Modified from Elasticsearch.Index.hot_swap for better logging and
   # error handling
-  def hot_swap(alias_name) do
+  defp hot_swap(alias_name) do
     alias_name = alias_to_atom(alias_name)
+    mappings = mappings_from_alias(alias_name)
     name = Index.build_name(alias_name)
     config = Config.get(Cluster)
-    %{settings: settings} = index_config = config[:indexes][alias_name]
+    index_config = config[:indexes][alias_name]
+    settings = Map.get(mappings, :settings, index_config.settings)
 
     with {:index_from_settings, :ok} <-
            {:index_from_settings, Index.create_from_settings(config, name, %{settings: settings})},
