@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.0.2] 2025-01-13
+
+### Changed
+
+- [TD-3612] Updates td-cache and df-lib versions
+
 ## [7.0.1] 2025-01-10
 
 ### Added
