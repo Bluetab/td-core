@@ -4,6 +4,57 @@ defmodule TdCore.Search.PermissionsTest do
   alias TdCore.Search.Permissions
   alias TdCore.TestSupport.CacheHelpers
 
+  describe "Permissions.filter_for_permissions/2" do
+    test "returns a filter for admin role" do
+      claims = claims("admin")
+      assert Permissions.filter_for_permissions(["foo", "bar"], claims) == [%{match_all: %{}}]
+    end
+
+    test "returns a filter for service role" do
+      claims = claims("service")
+      assert Permissions.filter_for_permissions(["foo", "bar"], claims) == [%{match_all: %{}}]
+    end
+
+    test "returns a match_none query for user without permission" do
+      claims = claims()
+      assert Permissions.filter_for_permissions(["foo", "bar"], claims) == [%{match_none: %{}}]
+    end
+
+    test "includes domain_ids values for session permissions" do
+      claims = claims()
+
+      CacheHelpers.put_default_permissions(["baz"])
+      %{id: id1} = CacheHelpers.insert_domain()
+      %{id: id2} = CacheHelpers.insert_domain(parent_id: id1)
+
+      CacheHelpers.put_session_permissions(claims, %{
+        "foo" => [id1],
+        "bar" => [id2]
+      })
+
+      assert Permissions.filter_for_permissions(["foo", "bar", "baz"], claims) == [
+               %{term: %{"domain_ids" => id2}}
+             ]
+    end
+
+    test "matches none if any permission is missing" do
+      claims = claims()
+
+      CacheHelpers.put_default_permissions(["baz"])
+      %{id: id1} = CacheHelpers.insert_domain()
+      %{id: id2} = CacheHelpers.insert_domain(parent_id: id1)
+
+      CacheHelpers.put_session_permissions(claims, %{
+        "foo" => [id1],
+        "bar" => [id2]
+      })
+
+      assert Permissions.filter_for_permissions(["foo", "bar", "baz", "xyz"], claims) == [
+               %{match_none: %{}}
+             ]
+    end
+  end
+
   describe "Permissions.get_search_permissions/2" do
     test "returns a map with values :all for admin role" do
       claims = claims("admin")

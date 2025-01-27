@@ -9,7 +9,17 @@ defmodule TdCore.Search.Permissions do
     permissions
     |> get_search_permissions(claims)
     |> Map.values()
-    |> Enum.map(&Query.build_permission_filters/1)
+    |> Enum.reject(&(&1 == :all))
+    |> Enum.reduce_while([], fn
+      :none, _ -> {:halt, nil}
+      domains, [] -> {:cont, MapSet.new(domains)}
+      domains, acc -> {:cont, MapSet.intersection(acc, MapSet.new(domains))}
+    end)
+    |> case do
+      [] -> [Query.build_permission_filters(:all)]
+      nil -> [Query.build_permission_filters(:none)]
+      domains -> [Query.build_permission_filters(MapSet.to_list(domains))]
+    end
   end
 
   def get_search_permissions(permissions, claims, resource_type \\ "domain")
