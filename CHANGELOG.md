@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.1.0] 2025-01-29
+
+### Changed
+
+- [TD-6921] `td-df-lib` bump version.
+
 ## [7.1.0] 2025-01-27
 
 ### Changed
