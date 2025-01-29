@@ -6,6 +6,14 @@
 
 - [TD-6921] `td-df-lib` bump version.
 
+## [7.1.0] 2025-01-27
+
+### Changed
+
+- [TD-6862]
+  - Filter for permission functionality
+  - Update td-cluster
+
 ## [7.0.2] 2025-01-13
 
 ### Changed
