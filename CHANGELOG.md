@@ -1,10 +1,16 @@
 # Changelog
 
+## [7.1.2] 2025-02-03
+
+### Changed
+
+- [TD-6022] Update `td-df-lib` version for hierarchy field validation from file
+
 ## [7.1.1] 2025-01-29
 
 ### Changed
 
-- [TD-6921] `td-df-lib` bump version.
+- [TD-6921] Update `td-df-lib` version for url field load from file
 
 ## [7.1.0] 2025-01-27
 
