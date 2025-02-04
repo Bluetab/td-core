@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.1.3] 2025-02-04
+
+### Added
+
+- [TD-5119] Update `td-df-lib` version for add validation for template dependant fields
+
 ## [7.1.2] 2025-02-03
 
 ### Changed
