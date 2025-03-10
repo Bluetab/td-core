@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.3.0] 2025-03-10
+
+### Added
+
+- [TD-6927] Update `td-cluster` version to add task log mocks
+
 ## [7.1.3] 2025-02-04
 
 ### Added
