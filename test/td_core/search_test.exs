@@ -114,4 +114,15 @@ defmodule TdCore.SearchTest do
              } = values
     end
   end
+
+  describe "Search.create_pit/2" do
+    test "creates pit and formats response" do
+      expect(ElasticsearchMock, :request, fn _, :post, "/concepts/_pit", %{}, opts ->
+        assert opts == [params: %{"keep_alive" => "1m"}]
+        {:ok, %{"id" => "foo"}}
+      end)
+
+      assert {:ok, %{id: "foo"}} == Search.create_pit(:concepts, %{"keep_alive" => "1m"})
+    end
+  end
 end

@@ -36,6 +36,24 @@ defmodule TdCore.Search do
     |> format_response()
   end
 
+  def search_after(body) do
+    Cluster
+    |> Elasticsearch.post("/_search", body)
+    |> format_response()
+  end
+
+  def create_pit(index, params) do
+    params = Map.take(params, ["keep_alive"])
+
+    Cluster
+    |> Elasticsearch.post("/#{index}/_pit", %{}, params: params)
+    |> format_response()
+  end
+
+  def delete_pit(id) do
+    Elasticsearch.delete(Cluster, "/_pit", params: %{"id" => id})
+  end
+
   def get_filters(body, index) do
     search(body, index, format: :aggs)
   end
@@ -61,10 +79,16 @@ defmodule TdCore.Search do
 
   defp format_response(%{} = body, format) do
     body
-    |> Map.take(["_scroll_id", "aggregations", "hits"])
+    |> Map.take(["_scroll_id", "aggregations", "hits", "id", "pit_id"])
     |> Enum.reduce(%{}, fn
       {"_scroll_id", scroll_id}, acc ->
         Map.put(acc, :scroll_id, scroll_id)
+
+      {"pit_id", pit_id}, acc ->
+        Map.put(acc, :pit_id, pit_id)
+
+      {"id", id}, acc ->
+        Map.put(acc, :id, id)
 
       {"aggregations", aggs}, acc ->
         Map.put(acc, :aggregations, format_aggregations(aggs, format))
