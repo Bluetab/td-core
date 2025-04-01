@@ -3,6 +3,7 @@ defmodule TdCore.Search do
   Performs search requests in the search engine and formats responses.
   """
 
+  alias Elasticsearch.Cluster.Config
   alias TdCache.HierarchyCache
   alias TdCache.TaxonomyCache
   alias TdCore.Search.Cluster
@@ -51,7 +52,11 @@ defmodule TdCore.Search do
   end
 
   def delete_pit(id) do
-    Elasticsearch.delete(Cluster, "/_pit", params: %{"id" => id})
+    # the library does not have a delete function that allows to pass a body
+    # for a delete http call. We are calling directly to the configured api
+    # https://github.com/danielberkompas/elasticsearch-elixir/blob/master/lib/elasticsearch.ex#L505C35-L505C41
+    config = Config.get(Cluster)
+    config.api.request(config, :delete, "/_pit", %{"id" => id}, [])
   end
 
   def get_filters(body, index) do
