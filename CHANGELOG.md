@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7053]: 
+  - Filter widget for multi-language ordering
+  - Add locales only for translatable widgets
+
 ## [7.3.0] 2025-03-10
 
 ### Added

@@ -17,6 +17,7 @@ defmodule TdCore.Search.ElasticDocument do
   @disabled_field_types ~w(table url copy image)
   @entity_types ~w(domain hierarchy system user)
   @date_types ~w(date datetime)
+  @translatable_widgets ~w(enriched_text string textarea)
   @excluded_search_field_types @disabled_field_types ++ @entity_types ++ @date_types
 
   defmacro __using__(_) do
@@ -65,15 +66,16 @@ defmodule TdCore.Search.ElasticDocument do
 
   defp get_mappings(fields, opts) do
     {:ok, default_locale} = I18nCache.get_default_locale()
-    active_locales = I18nCache.get_active_locales!()
+    active_locales = I18nCache.get_active_locales!() -- [default_locale]
 
     fields
     |> maybe_filter(opts[:type])
+    |> maybe_filter_widget(opts[:widgets])
     |> Enum.map(fn field ->
       field
-      |> field_mapping
+      |> field_mapping()
       |> maybe_disable_search(field)
-      |> add_locales_content_mapping(default_locale, active_locales, opts[:add_locales?])
+      |> add_locales_content_mapping(field, active_locales, opts[:add_locales?])
     end)
     |> List.flatten()
   end
@@ -82,6 +84,11 @@ defmodule TdCore.Search.ElasticDocument do
     do: Enum.filter(fields, &(Map.get(&1, "type") == type))
 
   defp maybe_filter(fields, _type), do: fields
+
+  defp maybe_filter_widget(fields, widgets) when is_list(widgets),
+    do: Enum.filter(fields, &(Map.get(&1, "widget") in widgets))
+
+  defp maybe_filter_widget(fields, _widgets), do: fields
 
   def field_mapping(%{"name" => name, "type" => type}) when type in @disabled_field_types do
     {name, %{enabled: false}}
@@ -262,15 +269,22 @@ defmodule TdCore.Search.ElasticDocument do
     end)
   end
 
-  defp add_locales_content_mapping({name, mapping}, default_locale, active_locales, true) do
-    Enum.map(active_locales, fn locale ->
-      if locale == default_locale,
-        do: {"#{name}", mapping},
-        else: add_language_analyzer({"#{name}_#{locale}", mapping}, locale)
-    end)
+  defp add_locales_content_mapping(
+         {name, content} = mapping,
+         %{"widget" => widget},
+         active_locales,
+         true
+       )
+       when widget in @translatable_widgets do
+    mapping_locales =
+      Enum.map(active_locales, fn locale ->
+        add_language_analyzer({"#{name}_#{locale}", content}, locale)
+      end)
+
+    [mapping | mapping_locales]
   end
 
-  defp add_locales_content_mapping(mapping, _default_locale, _active_locales, _other), do: mapping
+  defp add_locales_content_mapping(mapping, _field, _active_locales, _other), do: mapping
 
   defp add_language_analyzer({field, %{type: type} = mapping}, lang)
        when type in @text_like_types and lang in @supported_langs do
