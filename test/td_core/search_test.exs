@@ -155,7 +155,7 @@ defmodule TdCore.SearchTest do
              headers: [{"Content-Type", "application/json"}],
              body: "{\"id\":\"#{id}\"}",
              params: %{},
-             options: [timeout: 5000, recv_timeout: 40000]
+             options: [timeout: 5000, recv_timeout: 40_000]
            }
          }}
       end)
