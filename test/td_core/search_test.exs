@@ -10,6 +10,13 @@ defmodule TdCore.SearchTest do
 
   @body %{"foo" => "bar"}
   @aggs %{"my_agg" => %{"buckets" => [%{"key" => "foo"}, %{"key" => "bar"}]}}
+  @body_search_after %{
+    query: "",
+    sort: ["_id"],
+    pit: %{id: "1", keep_alive: "1m"},
+    size: 1_000,
+    search_after: ["1"]
+  }
   @es6_total 123
   @es7_total %{"relation" => "eq", "value" => 123}
 
@@ -112,6 +119,66 @@ defmodule TdCore.SearchTest do
                  %{id: ^domain_2_id, name: ^domain_2_name}
                ]
              } = values
+    end
+  end
+
+  describe "Search.create_pit/2" do
+    test "creates pit and formats response" do
+      expect(ElasticsearchMock, :request, fn _, :post, "/concepts/_pit", %{}, opts ->
+        assert opts == [params: %{"keep_alive" => "1m"}]
+        {:ok, %{"id" => "foo"}}
+      end)
+
+      assert {:ok, %{id: "foo"}} == Search.create_pit(:concepts, %{"keep_alive" => "1m"})
+    end
+  end
+
+  describe "Search.delete_pit/1" do
+    test "deletes pit" do
+      id = "1"
+
+      expect(ElasticsearchMock, :request, fn _, :delete, "/_pit", %{"id" => ^id}, opts ->
+        assert opts == []
+
+        {:ok,
+         %HTTPoison.Response{
+           status_code: 200,
+           body: %{"num_freed" => 1, "succeeded" => true},
+           headers: [
+             {"content-type", "application/json; charset=UTF-8"},
+             {"content-length", "32"}
+           ],
+           request_url: "http://elastic:9200/_pit",
+           request: %HTTPoison.Request{
+             method: :delete,
+             url: "http://elastic:9200/_pit",
+             headers: [{"Content-Type", "application/json"}],
+             body: "{\"id\":\"#{id}\"}",
+             params: %{},
+             options: [timeout: 5000, recv_timeout: 40_000]
+           }
+         }}
+      end)
+
+      assert {:ok, %HTTPoison.Response{status_code: 200}} = Search.delete_pit(id)
+    end
+  end
+
+  describe "Search.search_after/1" do
+    test "supports search after pagination" do
+      expect(ElasticsearchMock, :request, fn _, :post, "/_search", body, _opts ->
+        assert body == %{
+                 size: 1000,
+                 sort: ["_id"],
+                 query: "",
+                 pit: %{id: "1", keep_alive: "1m"},
+                 search_after: ["1"]
+               }
+
+        SearchHelpers.hits_response([], @es7_total)
+      end)
+
+      assert Search.search_after(@body_search_after) == {:ok, %{results: [], total: 123}}
     end
   end
 end
