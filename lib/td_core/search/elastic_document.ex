@@ -7,6 +7,7 @@ defmodule TdCore.Search.ElasticDocument do
   def missing_term_name, do: @missing_term_name
 
   alias TdCache.I18nCache
+  alias TdCluster.Cluster.TdAi.Indices
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocument
   alias TdDfLib.Templates
@@ -54,6 +55,7 @@ defmodule TdCore.Search.ElasticDocument do
 
       defdelegate add_locales(fields), to: ElasticDocument
       defdelegate apply_lang_settings(index_config), to: ElasticDocument
+      defdelegate get_embedding_mappings(), to: ElasticDocument
     end
   end
 
@@ -78,6 +80,11 @@ defmodule TdCore.Search.ElasticDocument do
       |> add_locales_content_mapping(field, active_locales, opts[:add_locales?])
     end)
     |> List.flatten()
+  end
+
+  def get_embedding_mappings() do
+    {:ok, indices} = Indices.list(enabled: true)
+    Enum.into(indices, %{}, &to_vector_mapping/1)
   end
 
   defp maybe_filter(fields, type) when is_binary(type),
@@ -299,5 +306,9 @@ defmodule TdCore.Search.ElasticDocument do
       {:ok, "en"} -> ["porter_stem"]
       _other -> ["porter_stem"]
     end
+  end
+
+  defp to_vector_mapping(%{collection_name: name, index_params: index_params}) do
+    {"vector_#{name}", Map.put(index_params || %{}, "type", "dense_vector")}
   end
 end
