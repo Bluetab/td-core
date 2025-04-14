@@ -70,6 +70,7 @@ defmodule TdCore.Search.ElasticDocument do
 
     fields
     |> maybe_filter(opts[:type])
+    |> maybe_filter_widget(opts[:widgets])
     |> Enum.map(fn field ->
       field
       |> field_mapping()
@@ -83,6 +84,11 @@ defmodule TdCore.Search.ElasticDocument do
     do: Enum.filter(fields, &(Map.get(&1, "type") == type))
 
   defp maybe_filter(fields, _type), do: fields
+
+  defp maybe_filter_widget(fields, widgets) when is_list(widgets),
+    do: Enum.filter(fields, &(Map.get(&1, "widget") in widgets))
+
+  defp maybe_filter_widget(fields, _widgets), do: fields
 
   def field_mapping(%{"name" => name, "type" => type}) when type in @disabled_field_types do
     {name, %{enabled: false}}
