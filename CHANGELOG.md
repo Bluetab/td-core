@@ -8,6 +8,18 @@
   - Filter widget for multi-language ordering
   - Add locales only for translatable widgets
 
+## [7.5.0] 2025-04-10
+
+### Added
+
+- [TD-7074] Support for [search after pagination](https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#search-after)
+
+## [7.4.0] 2025-04-09
+
+### Changed
+
+- License
+
 ## [7.3.0] 2025-03-10
 
 ### Added
