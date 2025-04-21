@@ -50,6 +50,24 @@ defmodule TdCore.Search.Indexer do
 
   def reindex(index, id), do: reindex(index, [id])
 
+  def put_embeddings(index) do
+    alias_name = Cluster.alias_name(index)
+
+    store = store_from_alias(alias_name)
+
+    store.transaction(fn ->
+      alias_name
+      |> schema_from_alias()
+      |> store.stream(:embeddings)
+      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
+      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+      |> Stream.map(&Enum.join(&1, ""))
+      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+      |> Stream.map(&log_bulk_post(alias_name, &1, :update))
+      |> Stream.run()
+    end)
+  end
+
   defp store_from_alias(alias_name) do
     alias_atom = alias_to_atom(alias_name)
 

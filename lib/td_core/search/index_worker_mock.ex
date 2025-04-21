@@ -21,6 +21,8 @@ defmodule TdCore.Search.IndexWorkerMock do
 
   def consume(_events), do: :ok
 
+  def put_embeddings(_index), do: :ok
+
   def get_index_workers do
     [TdCore.Search.IndexWorkerMock]
   end
