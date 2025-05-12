@@ -82,7 +82,7 @@ defmodule TdCore.Search.ElasticDocument do
     |> List.flatten()
   end
 
-  def get_embedding_mappings() do
+  def get_embedding_mappings do
     {:ok, indices} = Indices.list(enabled: true)
     Enum.into(indices, %{}, &to_vector_mapping/1)
   end
