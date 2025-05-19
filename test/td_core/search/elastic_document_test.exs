@@ -3,6 +3,7 @@ defmodule TdCore.Search.ElasticDocumentTest do
 
   alias TdCore.Search.ElasticDocument
   alias TdCore.TestSupport.CacheHelpers
+  alias TdCluster.TestHelpers.TdAiMock.Indices
 
   @locales ~w(en es)
   @default_locale "en"
@@ -43,6 +44,19 @@ defmodule TdCore.Search.ElasticDocumentTest do
     test "adds locales to fields for non default languages" do
       assert ["name", "description", "name_es", "description_es"] ==
                ElasticDocument.add_locales([:name, :description])
+    end
+  end
+
+  describe "get_embedding_mappings" do
+    test "gets existing embedding mappings from ai indices" do
+      Indices.list_indices(
+        &Mox.expect/4,
+        [enabled: true],
+        {:ok, [%{collection_name: "collection_name", index_params: %{"dims" => "384"}}]}
+      )
+
+      assert %{"vector_collection_name" => %{"type" => "dense_vector", "dims" => "384"}} ==
+               ElasticDocument.get_embedding_mappings()
     end
   end
 end
