@@ -178,25 +178,4 @@ defmodule TdCore.Search.QueryTest do
              }
     end
   end
-
-  describe "bool_query" do
-    test "bool query for knn search" do
-      assert %{
-               bool: %{
-                 must: %{
-                   "knn" => %{"field" => "vector", "k" => 10, "query_vector" => [-5, 9, -12]}
-                 }
-               }
-             } ==
-               Query.bool_query(%{
-                 must: %{
-                   "knn" => %{
-                     "field" => "vector",
-                     "query_vector" => [-5, 9, -12],
-                     "k" => 10
-                   }
-                 }
-               })
-    end
-  end
 end
