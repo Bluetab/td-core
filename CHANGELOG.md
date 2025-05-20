@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-6219]: 
+  - Functions to fetch embedding mappings
+  - Functions to put embeddings in elastic
+
 ## [7.5.1] 2025-04-14
 
 ### Added
