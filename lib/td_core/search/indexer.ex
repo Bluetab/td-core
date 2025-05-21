@@ -50,6 +50,32 @@ defmodule TdCore.Search.Indexer do
 
   def reindex(index, id), do: reindex(index, [id])
 
+  def put_embeddings(index) do
+    alias_name = Cluster.alias_name(index)
+
+    store = store_from_alias(alias_name)
+
+    store.transaction(fn ->
+      alias_name
+      |> maybe_add_embedding_mappings()
+      |> then(fn
+        {:ok, _response} ->
+          alias_name
+          |> schema_from_alias()
+          |> store.stream(:embeddings)
+          |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
+          |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+          |> Stream.map(&Enum.join(&1, ""))
+          |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+          |> Stream.map(&log_bulk_post(alias_name, &1, :update))
+          |> Stream.run()
+
+        {:error, _detail} = error ->
+          error
+      end)
+    end)
+  end
+
   defp store_from_alias(alias_name) do
     alias_atom = alias_to_atom(alias_name)
 
@@ -299,5 +325,40 @@ defmodule TdCore.Search.Indexer do
 
   defp info_document_id(item, action) do
     "Document ID #{item[action]["_id"]}"
+  end
+
+  defp maybe_add_embedding_mappings(alias_name) do
+    case Elasticsearch.get(Cluster, "/#{alias_name}/_mappings") do
+      {:ok, %{} = index_with_mappings} ->
+        [mappings] = Map.values(index_with_mappings)
+        add_only_embedding_mappings(alias_name, mappings)
+
+      {:error, %Elasticsearch.Exception{message: message}} = error ->
+        Logger.error(message)
+        error
+
+      {:error, _unknown} = error ->
+        error
+    end
+  end
+
+  defp add_only_embedding_mappings(alias_name, existing_mappings) do
+    existing_embeddings =
+      get_in(existing_mappings, ["mappings", "properties", "embeddings", "properties"])
+
+    alias_embeddings =
+      alias_name
+      |> mappings_from_alias()
+      |> get_in([:mappings, :properties, :embeddings, :properties])
+
+    # We can only add new keys to the existing embedding properties in Elasticsearch,
+    # as updating mappings with existing data isn't allowed.
+    # To update or delete existing embedding properties a full reindex would be required,
+    # whereas putting embeddings currently works as a simple update operation.
+    embedding_properties = Map.merge(alias_embeddings, existing_embeddings)
+
+    Elasticsearch.put(Cluster, "/#{alias_name}/_mappings", %{
+      "properties" => %{"embeddings" => %{"properties" => embedding_properties}}
+    })
   end
 end

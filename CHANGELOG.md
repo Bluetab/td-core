@@ -1,10 +1,18 @@
 # Changelog
 
+## [7.5.2] 2025-05-22
+
+### Added
+
+- [TD-6219]:
+  - Functions to fetch embedding mappings
+  - Functions to put embeddings in elastic
+
 ## [7.5.1] 2025-04-14
 
 ### Added
 
-- [TD-7053]: 
+- [TD-7053]:
   - Filter widget for multi-language ordering
   - Add locales only for translatable widgets
 
