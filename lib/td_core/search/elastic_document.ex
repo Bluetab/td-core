@@ -13,6 +13,7 @@ defmodule TdCore.Search.ElasticDocument do
   alias TdDfLib.Templates
 
   @raw %{raw: %{type: "keyword", null_value: ""}}
+  @exact %{exact: %{type: "text", analyzer: "simple"}}
   @text_like_types ~w(text search_as_you_type)
   @supported_langs ~w(en es)
   @disabled_field_types ~w(table url copy image)
@@ -36,6 +37,7 @@ defmodule TdCore.Search.ElasticDocument do
         raw: %{type: "keyword", null_value: ""},
         sort: %{type: "keyword", normalizer: "sortable"}
       }
+      @exact %{exact: %{type: "text", analyzer: "simple"}}
 
       def get_dynamic_mappings(scope, opts \\ []),
         do: ElasticDocument.get_dynamic_mappings(scope, opts)
@@ -122,7 +124,7 @@ defmodule TdCore.Search.ElasticDocument do
   end
 
   def field_mapping(%{"name" => name}) do
-    {name, %{type: "text", fields: @raw}}
+    {name, %{type: "text", fields: Map.merge(@raw, @exact)}}
   end
 
   def add_locales_fields_mapping(mapping, fields) do
