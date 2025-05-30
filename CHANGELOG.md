@@ -1,5 +1,11 @@
 # Changelog
 
+##  [Unreleased]
+
+### Changed
+
+- [TD-6468] Update td-df-lib to expand parsed fields in all active languages if translations
+
 ## [7.5.2] 2025-05-22
 
 ### Added
