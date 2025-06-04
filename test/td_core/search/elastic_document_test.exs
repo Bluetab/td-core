@@ -58,5 +58,15 @@ defmodule TdCore.Search.ElasticDocumentTest do
       assert %{"vector_collection_name" => %{"type" => "dense_vector", "dims" => "384"}} ==
                ElasticDocument.get_embedding_mappings()
     end
+
+    test "returns default response on error node down reponse" do
+      Indices.list_indices(
+        &Mox.expect/4,
+        [enabled: true],
+        {:error, :nodedown}
+      )
+
+      assert %{} == ElasticDocument.get_embedding_mappings()
+    end
   end
 end

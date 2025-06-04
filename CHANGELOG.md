@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.5.2] 2025-06-04
+
+### Changed
+
+- [TD-6219] Add a default clause to handle node-down responses when returning mappings for AI indices
+
 ## [7.5.2] 2025-05-22
 
 ### Added
