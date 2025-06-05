@@ -85,8 +85,10 @@ defmodule TdCore.Search.ElasticDocument do
   end
 
   def get_embedding_mappings do
-    {:ok, indices} = Indices.list(enabled: true)
-    Enum.into(indices, %{}, &to_vector_mapping/1)
+    case Indices.list(enabled: true) do
+      {:ok, indices} -> Enum.into(indices, %{}, &to_vector_mapping/1)
+      _error -> %{}
+    end
   end
 
   defp maybe_filter(fields, type) when is_binary(type),
