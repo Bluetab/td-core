@@ -1,10 +1,16 @@
 # Changelog
 
-##  [Unreleased]
+##  [7.6.0] 2025-06-06
 
 ### Changed
 
 - [TD-6468] Update td-df-lib to expand parsed fields in all active languages if translations
+
+## [7.5.3] 2025-06-04
+
+### Changed
+
+- [TD-6219] Add a default clause to handle node-down responses when returning mappings for AI indices
 
 ## [7.5.2] 2025-05-22
 
