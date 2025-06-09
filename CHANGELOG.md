@@ -5,6 +5,12 @@
 ### Added
 
 - [TD-7231] Add search enhancements for quoted text query
+- 
+##  [7.6.0] 2025-06-06
+
+### Changed
+
+- [TD-6468] Update td-df-lib to expand parsed fields in all active languages if translations
 
 ## [7.5.3] 2025-06-04
 
