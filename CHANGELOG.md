@@ -102,7 +102,7 @@
 
 ## [6.16.0] 2024-12-02
 
-## Added
+### Added
 
 - [TD-6938] When creating filters, treat "inserted_at" and "last_change_at" as ranges
 
