@@ -1,6 +1,12 @@
 # Changelog
 
-##  [7.6.0] 2025-06-06
+## [7.7.0] 2025-06-16
+
+### Changed
+
+- [TD-7299] Update `elasticsearch-elixir` dependency for vulnerabilities
+
+## [7.6.0] 2025-06-06
 
 ### Changed
 
