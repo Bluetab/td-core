@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-### Add
+### Added
 
 - [TD-7300] Update td-df-lib and td-cache lib to add Link origin
 
