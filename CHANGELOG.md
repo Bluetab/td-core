@@ -6,7 +6,19 @@
 
 - [TD-7231] Add search enhancements for quoted text query
 
-##  [7.6.0] 2025-06-06
+## [7.7.1] 2025-06-16
+
+### Changed
+
+- [TD-7299] Update `elasticsearch-elixir` dependency for vulnerabilities
+
+## [7.7.0] 2025-06-20
+
+### Added
+
+- [TD-7300] Update td-df-lib and td-cache lib to add Link origin
+
+## [7.6.0] 2025-06-06
 
 ### Changed
 
@@ -102,7 +114,7 @@
 
 ## [6.16.0] 2024-12-02
 
-## Added
+### Added
 
 - [TD-6938] When creating filters, treat "inserted_at" and "last_change_at" as ranges
 
