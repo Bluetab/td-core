@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7327] Use the store to manage deletions in Elasticsearch.
+
 ## [7.8.0] 2025-07-03
 
 ### Added
