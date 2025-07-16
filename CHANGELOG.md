@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7175] Upgrade td-cache and td-cluster versions
+
 ## [7.8.0] 2025-07-03
 
 ### Added
