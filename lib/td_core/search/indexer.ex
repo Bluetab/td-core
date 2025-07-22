@@ -105,6 +105,20 @@ defmodule TdCore.Search.Indexer do
   defp mappings_from_source(nil), do: nil
   defp mappings_from_source(source), do: ElasticDocumentProtocol.mappings(struct(source))
 
+  def delete(index, {:store, structs}) do
+    alias_name = Cluster.alias_name(index)
+
+    store = store_from_alias(alias_name)
+
+    store.transaction(fn ->
+      alias_name
+      |> schema_from_alias()
+      |> store.stream({:delete, structs})
+      |> Stream.map(&Elasticsearch.delete_document(Cluster, &1, alias_name))
+      |> Stream.run()
+    end)
+  end
+
   def delete(index, ids) do
     alias_name = Cluster.alias_name(index)
     Enum.map(ids, &Elasticsearch.delete_document(Cluster, &1, alias_name))
