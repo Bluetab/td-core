@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7327] Update td-cache and td-df-lib to add Link Approvals.
+
 ## [7.8.1] 2025-07-22
 
 ### Added
