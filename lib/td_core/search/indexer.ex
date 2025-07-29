@@ -50,7 +50,7 @@ defmodule TdCore.Search.Indexer do
 
   def reindex(index, id), do: reindex(index, [id])
 
-  def put_embeddings(index) do
+  def put_embeddings(index, :all) do
     alias_name = Cluster.alias_name(index)
 
     store = store_from_alias(alias_name)

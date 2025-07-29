@@ -22,8 +22,8 @@ defmodule TdCore.Search.IndexWorkerImpl do
     GenServer.call(index, {:delete, ids_or_tuple})
   end
 
-  def put_embeddings(index) do
-    GenServer.cast(index, :put_embeddings)
+  def put_embeddings(index, ids) do
+    GenServer.cast(index, {:put_embeddings, ids})
   end
 
   def get_index_workers do
@@ -73,11 +73,11 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   @impl GenServer
-  def handle_cast(:put_embeddings, index) do
+  def handle_cast({:put_embeddings, ids}, index) do
     Logger.info("Started embeddings update for #{index}")
 
     Timer.time(
-      fn -> Indexer.put_embeddings(index) end,
+      fn -> Indexer.put_embeddings(index, ids) end,
       fn millis, _ -> Logger.info("#{index} embeddings put in #{millis} ms") end
     )
 
