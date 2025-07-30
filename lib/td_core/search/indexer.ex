@@ -62,7 +62,7 @@ defmodule TdCore.Search.Indexer do
         {:ok, _response} ->
           alias_name
           |> schema_from_alias()
-          |> store.stream(:embeddings)
+          |> store.stream({:embeddings, :all})
           |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
           |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
           |> Stream.map(&Enum.join(&1, ""))
