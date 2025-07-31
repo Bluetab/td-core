@@ -55,24 +55,34 @@ defmodule TdCore.Search.Indexer do
 
     store = store_from_alias(alias_name)
 
+    alias_name
+    |> maybe_add_embedding_mappings()
+    |> then(fn
+      {:ok, _response} ->
+        alias_name
+        |> schema_from_alias()
+        |> store.run({:embeddings, :all})
+
+      {:error, _detail} = error ->
+        error
+    end)
+  end
+
+  def put_embeddings(index, ids) when is_list(ids) do
+    alias_name = Cluster.alias_name(index)
+
+    store = store_from_alias(alias_name)
+
     store.transaction(fn ->
       alias_name
-      |> maybe_add_embedding_mappings()
-      |> then(fn
-        {:ok, _response} ->
-          alias_name
-          |> schema_from_alias()
-          |> store.stream({:embeddings, :all})
-          |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
-          |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
-          |> Stream.map(&Enum.join(&1, ""))
-          |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
-          |> Stream.map(&log_bulk_post(alias_name, &1, :update))
-          |> Stream.run()
-
-        {:error, _detail} = error ->
-          error
-      end)
+      |> schema_from_alias()
+      |> store.stream({:embeddings, ids})
+      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
+      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+      |> Stream.map(&Enum.join(&1, ""))
+      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+      |> Stream.map(&log_bulk_post(alias_name, &1, :update))
+      |> Stream.run()
     end)
   end
 
