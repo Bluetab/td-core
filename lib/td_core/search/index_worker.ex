@@ -10,7 +10,7 @@ defmodule TdCore.Search.IndexWorker do
 
   defdelegate start_link(index), to: @worker
   defdelegate consume(events), to: @worker
-  defdelegate delete(index, ids), to: @worker
+  defdelegate delete(index, ids_or_tuple), to: @worker
   defdelegate get_index_workers, to: @worker
   defdelegate reindex(index, ids), to: @worker
   defdelegate put_embeddings(index), to: @worker

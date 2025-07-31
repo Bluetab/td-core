@@ -18,8 +18,8 @@ defmodule TdCore.Search.IndexWorkerImpl do
     GenServer.cast(index, {:reindex, ids})
   end
 
-  def delete(index, ids) do
-    GenServer.call(index, {:delete, ids})
+  def delete(index, ids_or_tuple) do
+    GenServer.call(index, {:delete, ids_or_tuple})
   end
 
   def put_embeddings(index) do
@@ -85,11 +85,11 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   @impl GenServer
-  def handle_call({:delete, ids}, _from, index) do
+  def handle_call({:delete, ids_or_tuple}, _from, index) do
     reply =
       Timer.time(
-        fn -> Indexer.delete(index, ids) end,
-        fn millis, _ -> Logger.info("Rules deleted in #{millis}ms") end
+        fn -> Indexer.delete(index, ids_or_tuple) end,
+        fn millis, _ -> Logger.info("#{index} deleted in #{millis}ms") end
       )
 
     {:reply, reply, index}
