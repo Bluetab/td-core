@@ -379,7 +379,7 @@ defmodule TdCore.Search.Indexer do
     # as updating mappings with existing data isn't allowed.
     # To update or delete existing embedding properties a full reindex would be required,
     # whereas putting embeddings currently works as a simple update operation.
-    embedding_properties = Map.merge(alias_embeddings, existing_embeddings)
+    embedding_properties = Map.merge(alias_embeddings || %{}, existing_embeddings || %{})
 
     Elasticsearch.put(Cluster, "/#{alias_name}/_mappings", %{
       "properties" => %{"embeddings" => %{"properties" => embedding_properties}}
