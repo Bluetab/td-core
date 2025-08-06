@@ -68,6 +68,7 @@ defmodule TdCore.Search.Indexer do
     end)
   end
 
+  @update_action "update"
   def put_embeddings(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
 
@@ -77,11 +78,11 @@ defmodule TdCore.Search.Indexer do
       alias_name
       |> schema_from_alias()
       |> store.stream({:embeddings, ids})
-      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
+      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
       |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
       |> Stream.map(&Enum.join(&1, ""))
       |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
-      |> Stream.map(&log_bulk_post(alias_name, &1, :update))
+      |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
       |> Stream.run()
     end)
   end
