@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-7364] Embedding management supports inserting all embeddings or targeting specific ones by ID.
+
 ## [7.8.1] 2025-07-22
 
 ### Added
