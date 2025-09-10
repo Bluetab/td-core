@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7417]:
+  - Refresh function in hot swap to accept options.
+  - Clean up previously completed async tasks.
+
+### Changed
+
+- [TD-7417] Force merge in hot swap async by default.
+
 ## [7.8.1] 2025-07-22
 
 ### Added
