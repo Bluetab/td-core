@@ -178,7 +178,7 @@ defmodule TdCore.Search.Indexer do
          {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
          {:index_clean_starting, :ok} <-
            {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
-         {:index_refresh, :ok} <- {:index_refresh, Index.refresh(config, name)} do
+         {:index_refresh, :ok} <- {:index_refresh, refresh(config, name)} do
       Logger.info(
         "Hot swap successful, finished reindexing, pointing alias #{alias_name} -> #{name}"
       )
@@ -314,6 +314,20 @@ defmodule TdCore.Search.Indexer do
 
   def pluralize([_ | _] = exceptions) do
     "#{Enum.count(exceptions)} errors"
+  end
+
+  def refresh(cluster, name, opts \\ []) do
+    max_num_segments = Keyword.get(opts, :max_num_segments, 5)
+    wait_for_completion = Keyword.get(opts, :wait_for_completion, false)
+
+    with {:ok, _} <-
+           Elasticsearch.post(
+             cluster,
+             "/#{name}/_forcemerge?max_num_segments=#{max_num_segments}&wait_for_completion=#{wait_for_completion}",
+             %{}
+           ),
+         {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
+         do: :ok
   end
 
   defp message(%Elasticsearch.Exception{} = e) do
