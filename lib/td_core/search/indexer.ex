@@ -9,6 +9,7 @@ defmodule TdCore.Search.Indexer do
   alias Elasticsearch.Index
   alias Elasticsearch.Index.Bulk
   alias TdCluster.Cluster.TdDd.Tasks
+  alias TdCore.Search
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocumentProtocol
 
@@ -154,7 +155,13 @@ defmodule TdCore.Search.Indexer do
 
   defp maybe_hot_swap({:ok, _put_template_result}, alias_name) do
     Logger.info("Starting reindex using hot_swap...")
-    hot_swap(alias_name)
+
+    alias_name
+    |> hot_swap()
+    |> tap(fn
+      {:ok, _name} -> cleanup_tasks()
+      {:error, _name} -> :noop
+    end)
   end
 
   defp maybe_hot_swap({:error, _error} = put_template_error, _alias_name) do
@@ -328,6 +335,42 @@ defmodule TdCore.Search.Indexer do
            ),
          {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
          do: :ok
+  end
+
+  @task_index ".tasks"
+  def cleanup_tasks do
+    %{
+      size: 10,
+      query: %{
+        bool: %{
+          filter: [
+            %{term: %{completed: true}},
+            %{term: %{"task.action" => "indices:admin/forcemerge"}}
+          ]
+        }
+      }
+    }
+    |> Search.search(@task_index)
+    |> then(fn
+      {:ok, %{results: []}} ->
+        Logger.info("No tasks found to cleanup")
+
+      {:ok, %{results: [_ | _] = results}} ->
+        results
+        |> Enum.map(fn %{"_id" => id} ->
+          Elasticsearch.delete(Cluster, "/#{@task_index}/_doc/#{id}")
+        end)
+        |> Enum.each(fn
+          {:ok, deleted} ->
+            Logger.info("Task successfully deleted: #{deleted["_id"]}")
+
+          {:error, error} ->
+            Logger.error("Error on task deletion: #{inspect(error)}")
+        end)
+
+      {:error, error} ->
+        Logger.error("Cleanup tasks: #{inspect(error)}")
+    end)
   end
 
   defp message(%Elasticsearch.Exception{} = e) do

@@ -386,4 +386,39 @@ defmodule TdCore.Search.IndexerTest do
                )
     end
   end
+
+  describe "cleanup_tasks" do
+    test "cleans up tasks" do
+      Mox.expect(ElasticsearchMock, :request, 1, fn _, :post, "/.tasks/_search", body, _ ->
+        assert body == %{
+                 size: 10,
+                 query: %{
+                   bool: %{
+                     filter: [
+                       %{term: %{completed: true}},
+                       %{term: %{"task.action" => "indices:admin/forcemerge"}}
+                     ]
+                   }
+                 }
+               }
+
+        {:ok, %{"hits" => %{"hits" => [%{"_id" => "task_id"}], "total" => 1}}}
+      end)
+
+      Mox.expect(ElasticsearchMock, :request, 1, fn _,
+                                                    :delete,
+                                                    "/.tasks/_doc/task_id",
+                                                    _body,
+                                                    _ ->
+        {:ok, %{"_id" => "task_id"}}
+      end)
+
+      assert log =
+               capture_log(fn ->
+                 assert :ok == Indexer.cleanup_tasks()
+               end)
+
+      assert log =~ "[info] Task successfully deleted: task_id"
+    end
+  end
 end
