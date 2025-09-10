@@ -6,6 +6,12 @@
 
 - [TD-7364] Embedding management supports inserting all embeddings or targeting specific ones by ID.
 
+## [7.10.0] 2025-09-09
+
+### Added
+
+- [TD-7175] Upgrade td-cluster versions
+
 ## [7.8.1] 2025-07-22
 
 ### Added
