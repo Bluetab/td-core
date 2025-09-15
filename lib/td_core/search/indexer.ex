@@ -361,9 +361,6 @@ defmodule TdCore.Search.Indexer do
       {:error, %Elasticsearch.Exception{message: message}} = error ->
         Logger.error(message)
         error
-
-      {:error, _unknown} = error ->
-        error
     end
   end
 
