@@ -205,6 +205,8 @@ defmodule TdCore.Search.Indexer do
           "While not mandatory, performing a manual refresh can help maintain optimal index performance"
         )
 
+        Logger.info("Pointing alias #{alias_name} -> #{name}")
+
         {:ok, name}
 
       {process_key, error} ->
