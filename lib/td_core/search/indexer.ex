@@ -51,29 +51,40 @@ defmodule TdCore.Search.Indexer do
 
   def reindex(index, id), do: reindex(index, [id])
 
-  def put_embeddings(index) do
+  def put_embeddings(index, :all) do
+    alias_name = Cluster.alias_name(index)
+
+    store = store_from_alias(alias_name)
+
+    alias_name
+    |> maybe_add_embedding_mappings()
+    |> then(fn
+      {:ok, _response} ->
+        alias_name
+        |> schema_from_alias()
+        |> store.run({:embeddings, :all})
+
+      {:error, _detail} = error ->
+        error
+    end)
+  end
+
+  @update_action "update"
+  def put_embeddings(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
 
     store = store_from_alias(alias_name)
 
     store.transaction(fn ->
       alias_name
-      |> maybe_add_embedding_mappings()
-      |> then(fn
-        {:ok, _response} ->
-          alias_name
-          |> schema_from_alias()
-          |> store.stream(:embeddings)
-          |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, :update))
-          |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
-          |> Stream.map(&Enum.join(&1, ""))
-          |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
-          |> Stream.map(&log_bulk_post(alias_name, &1, :update))
-          |> Stream.run()
-
-        {:error, _detail} = error ->
-          error
-      end)
+      |> schema_from_alias()
+      |> store.stream({:embeddings, ids})
+      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
+      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+      |> Stream.map(&Enum.join(&1, ""))
+      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+      |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
+      |> Stream.run()
     end)
   end
 
@@ -407,9 +418,6 @@ defmodule TdCore.Search.Indexer do
       {:error, %Elasticsearch.Exception{message: message}} = error ->
         Logger.error(message)
         error
-
-      {:error, _unknown} = error ->
-        error
     end
   end
 
@@ -426,7 +434,7 @@ defmodule TdCore.Search.Indexer do
     # as updating mappings with existing data isn't allowed.
     # To update or delete existing embedding properties a full reindex would be required,
     # whereas putting embeddings currently works as a simple update operation.
-    embedding_properties = Map.merge(alias_embeddings, existing_embeddings)
+    embedding_properties = Map.merge(alias_embeddings || %{}, existing_embeddings || %{})
 
     Elasticsearch.put(Cluster, "/#{alias_name}/_mappings", %{
       "properties" => %{"embeddings" => %{"properties" => embedding_properties}}
