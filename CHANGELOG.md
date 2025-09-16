@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7446] Add support for filtering by multiple types in maybe_filter function
+
 ## [7.10.2] 2025-09-16
 
 ### Changed

@@ -4,9 +4,43 @@ defmodule TdCore.Search.ElasticDocumentTest do
   alias TdCluster.TestHelpers.TdAiMock.Indices
   alias TdCore.Search.ElasticDocument
   alias TdCore.TestSupport.CacheHelpers
+  alias TestCacheHelpers
 
   @locales ~w(en es)
   @default_locale "en"
+
+  describe "get_dynamic_mappings/2" do
+    setup do
+      template = TestCacheHelpers.insert_template()
+      %{template: template}
+    end
+
+    test "returns all fields" do
+      assert %{
+               "field-text" => %{},
+               "multi-group" => %{},
+               "multi-user" => %{},
+               "single-group" => %{},
+               "single-user" => %{}
+             } = ElasticDocument.get_dynamic_mappings("ts")
+    end
+
+    test "returns single field type" do
+      assert %{
+               "multi-user" => %{},
+               "single-user" => %{}
+             } = ElasticDocument.get_dynamic_mappings("ts", type: "user")
+    end
+
+    test "returns multiple field types" do
+      assert %{
+               "multi-group" => %{},
+               "multi-user" => %{},
+               "single-group" => %{},
+               "single-user" => %{}
+             } = ElasticDocument.get_dynamic_mappings("ts", type: ["user", "user_group"])
+    end
+  end
 
   describe "add_locales_fields_mapping/2" do
     setup do
