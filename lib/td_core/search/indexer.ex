@@ -9,7 +9,6 @@ defmodule TdCore.Search.Indexer do
   alias Elasticsearch.Index
   alias Elasticsearch.Index.Bulk
   alias TdCluster.Cluster.TdDd.Tasks
-  alias TdCore.Search
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocumentProtocol
 
@@ -166,13 +165,7 @@ defmodule TdCore.Search.Indexer do
 
   defp maybe_hot_swap({:ok, _put_template_result}, alias_name) do
     Logger.info("Starting reindex using hot_swap...")
-
-    alias_name
-    |> hot_swap()
-    |> tap(fn
-      {:ok, _name} -> maybe_cleanup_tasks()
-      {:error, _name} -> :noop
-    end)
+    hot_swap(alias_name)
   end
 
   defp maybe_hot_swap({:error, _error} = put_template_error, _alias_name) do
@@ -346,56 +339,14 @@ defmodule TdCore.Search.Indexer do
   def refresh(cluster, name, opts \\ []) do
     forcemerge_options = forcemerge_config(opts)
 
-    with {:ok, _} <-
+    with {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
+         {:ok, _} <-
            Elasticsearch.post(
              cluster,
              "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
              %{}
            ),
-         {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
          do: :ok
-  end
-
-  @task_index ".tasks"
-  def maybe_cleanup_tasks(opts \\ []) do
-    forcemerge_options = forcemerge_config(opts)
-
-    if not Keyword.get(forcemerge_options, :wait_for_completion, true) do
-      %{
-        size: 10,
-        query: %{
-          bool: %{
-            filter: [
-              %{term: %{completed: true}},
-              %{term: %{"task.action" => "indices:admin/forcemerge"}}
-            ]
-          }
-        }
-      }
-      |> Search.search(@task_index)
-      |> then(fn
-        {:ok, %{results: []}} ->
-          Logger.info("No tasks found to cleanup")
-
-        {:ok, %{results: [_ | _] = results}} ->
-          results
-          |> Enum.map(fn %{"_id" => id} ->
-            Elasticsearch.delete(Cluster, "/#{@task_index}/_doc/#{id}")
-          end)
-          |> Enum.each(fn
-            {:ok, deleted} ->
-              Logger.info("Task successfully deleted: #{deleted["_id"]}")
-
-            {:error, error} ->
-              Logger.error("Error on task deletion: #{inspect(error)}")
-          end)
-
-        {:error, error} ->
-          Logger.error("Cleanup tasks: #{inspect(error)}")
-      end)
-    else
-      :noop
-    end
   end
 
   defp message(%Elasticsearch.Exception{} = e) do
@@ -455,7 +406,7 @@ defmodule TdCore.Search.Indexer do
     })
   end
 
-  defp forcemerge_config(opts) do
+  defp forcemerge_config(opts \\ []) do
     default_config = Keyword.get(cluster_config(), :forcemerge_options, [])
 
     opts

@@ -4,10 +4,11 @@
 
 ### Added
 
-- [TD-7417]: Pass config or options to forcemerge in refresh function:
-  - Force merge can run async.
-  - Clean up previously completed async tasks.
-  - Tune max num of shards.
+- [TD-7417]: 
+  - Pass config or options to forcemerge in refresh function:
+    - Force merge can run async.
+    - Clean up previously completed async tasks.
+    - Tune max num of shards.
 
 ### Changed
 
