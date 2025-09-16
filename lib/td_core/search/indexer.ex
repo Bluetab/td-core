@@ -198,7 +198,7 @@ defmodule TdCore.Search.Indexer do
     else
       {:index_refresh, error} ->
         Logger.warning(
-          "Hot swap of index #{name} finished with refresh operation failed with the following error: #{inspect(error)}"
+          "Hot swap of index #{name} finished successfully with refresh operation failed with the following error: #{inspect(error)}"
         )
 
         Logger.warning(
@@ -406,7 +406,7 @@ defmodule TdCore.Search.Indexer do
     })
   end
 
-  defp forcemerge_config(opts \\ []) do
+  defp forcemerge_config(opts) do
     default_config = Keyword.get(cluster_config(), :forcemerge_options, [])
 
     opts
