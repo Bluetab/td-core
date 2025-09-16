@@ -353,7 +353,7 @@ defmodule TdCore.Search.IndexerTest do
     test "refreshes index with default params" do
       Mox.expect(ElasticsearchMock, :request, 1, fn _,
                                                     :post,
-                                                    "/concepts/_forcemerge?max_num_segments=5&wait_for_completion=false",
+                                                    "/concepts/_forcemerge?max_num_segments=5",
                                                     _,
                                                     [] ->
         {:ok, :success}
@@ -381,14 +381,38 @@ defmodule TdCore.Search.IndexerTest do
 
       assert :ok ==
                Indexer.refresh(Cluster, "concepts",
-                 max_num_segments: 10,
-                 wait_for_completion: true
+                 forcemerge_options: [
+                   max_num_segments: 10,
+                   wait_for_completion: true
+                 ]
+               )
+    end
+
+    test "rejects nil opt param" do
+      Mox.expect(ElasticsearchMock, :request, 1, fn _,
+                                                    :post,
+                                                    "/concepts/_forcemerge?max_num_segments=10",
+                                                    _,
+                                                    [] ->
+        {:ok, :success}
+      end)
+
+      Mox.expect(ElasticsearchMock, :request, 1, fn _, :post, "/concepts/_refresh", _, [] ->
+        {:ok, :success}
+      end)
+
+      assert :ok ==
+               Indexer.refresh(Cluster, "concepts",
+                 forcemerge_options: [
+                   max_num_segments: 10,
+                   wait_for_completion: nil
+                 ]
                )
     end
   end
 
-  describe "cleanup_tasks" do
-    test "cleans up tasks" do
+  describe "maybe_cleanup_tasks" do
+    test "cleans up task if wait_for_completion = false" do
       Mox.expect(ElasticsearchMock, :request, 1, fn _, :post, "/.tasks/_search", body, _ ->
         assert body == %{
                  size: 10,
@@ -415,10 +439,20 @@ defmodule TdCore.Search.IndexerTest do
 
       assert log =
                capture_log(fn ->
-                 assert :ok == Indexer.cleanup_tasks()
+                 assert :ok ==
+                          Indexer.maybe_cleanup_tasks(
+                            forcemerge_options: [wait_for_completion: false]
+                          )
                end)
 
       assert log =~ "[info] Task successfully deleted: task_id"
+    end
+
+    test "noop if wait_for_completion = true or nil" do
+      assert :noop ==
+               Indexer.maybe_cleanup_tasks(forcemerge_options: [wait_for_completion: true])
+
+      assert :noop == Indexer.maybe_cleanup_tasks()
     end
   end
 end

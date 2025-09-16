@@ -170,7 +170,7 @@ defmodule TdCore.Search.Indexer do
     alias_name
     |> hot_swap()
     |> tap(fn
-      {:ok, _name} -> cleanup_tasks()
+      {:ok, _name} -> maybe_cleanup_tasks()
       {:error, _name} -> :noop
     end)
   end
@@ -203,10 +203,19 @@ defmodule TdCore.Search.Indexer do
 
       {:ok, name}
     else
-      {process_key, error} ->
-        delete_index =
-          Application.get_env(:td_core, TdCore.Search.Cluster)[:delete_existing_index]
+      {:index_refresh, error} ->
+        Logger.warning(
+          "Hot swap of index #{name} finished with refresh operation failed with the following error: #{inspect(error)}"
+        )
 
+        Logger.warning(
+          "While not mandatory, performing a manual refresh can help maintain optimal index performance"
+        )
+
+        {:ok, name}
+
+      {process_key, error} ->
+        delete_index = Keyword.get(cluster_config(), :delete_existing_index)
         log_hot_swap_errors(name, process_key, error)
 
         delete_existing_index(name, alias_name, Cluster, delete_index)
@@ -335,13 +344,12 @@ defmodule TdCore.Search.Indexer do
   end
 
   def refresh(cluster, name, opts \\ []) do
-    max_num_segments = Keyword.get(opts, :max_num_segments, 5)
-    wait_for_completion = Keyword.get(opts, :wait_for_completion, false)
+    forcemerge_options = forcemerge_config(opts)
 
     with {:ok, _} <-
            Elasticsearch.post(
              cluster,
-             "/#{name}/_forcemerge?max_num_segments=#{max_num_segments}&wait_for_completion=#{wait_for_completion}",
+             "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
              %{}
            ),
          {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
@@ -349,39 +357,45 @@ defmodule TdCore.Search.Indexer do
   end
 
   @task_index ".tasks"
-  def cleanup_tasks do
-    %{
-      size: 10,
-      query: %{
-        bool: %{
-          filter: [
-            %{term: %{completed: true}},
-            %{term: %{"task.action" => "indices:admin/forcemerge"}}
-          ]
+  def maybe_cleanup_tasks(opts \\ []) do
+    forcemerge_options = forcemerge_config(opts)
+
+    if not Keyword.get(forcemerge_options, :wait_for_completion, true) do
+      %{
+        size: 10,
+        query: %{
+          bool: %{
+            filter: [
+              %{term: %{completed: true}},
+              %{term: %{"task.action" => "indices:admin/forcemerge"}}
+            ]
+          }
         }
       }
-    }
-    |> Search.search(@task_index)
-    |> then(fn
-      {:ok, %{results: []}} ->
-        Logger.info("No tasks found to cleanup")
+      |> Search.search(@task_index)
+      |> then(fn
+        {:ok, %{results: []}} ->
+          Logger.info("No tasks found to cleanup")
 
-      {:ok, %{results: [_ | _] = results}} ->
-        results
-        |> Enum.map(fn %{"_id" => id} ->
-          Elasticsearch.delete(Cluster, "/#{@task_index}/_doc/#{id}")
-        end)
-        |> Enum.each(fn
-          {:ok, deleted} ->
-            Logger.info("Task successfully deleted: #{deleted["_id"]}")
+        {:ok, %{results: [_ | _] = results}} ->
+          results
+          |> Enum.map(fn %{"_id" => id} ->
+            Elasticsearch.delete(Cluster, "/#{@task_index}/_doc/#{id}")
+          end)
+          |> Enum.each(fn
+            {:ok, deleted} ->
+              Logger.info("Task successfully deleted: #{deleted["_id"]}")
 
-          {:error, error} ->
-            Logger.error("Error on task deletion: #{inspect(error)}")
-        end)
+            {:error, error} ->
+              Logger.error("Error on task deletion: #{inspect(error)}")
+          end)
 
-      {:error, error} ->
-        Logger.error("Cleanup tasks: #{inspect(error)}")
-    end)
+        {:error, error} ->
+          Logger.error("Cleanup tasks: #{inspect(error)}")
+      end)
+    else
+      :noop
+    end
   end
 
   defp message(%Elasticsearch.Exception{} = e) do
@@ -439,5 +453,18 @@ defmodule TdCore.Search.Indexer do
     Elasticsearch.put(Cluster, "/#{alias_name}/_mappings", %{
       "properties" => %{"embeddings" => %{"properties" => embedding_properties}}
     })
+  end
+
+  defp forcemerge_config(opts) do
+    default_config = Keyword.get(cluster_config(), :forcemerge_options, [])
+
+    opts
+    |> Keyword.get(:forcemerge_options, default_config)
+    |> Keyword.put_new(:max_num_segments, 5)
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp cluster_config do
+    Application.get_env(:td_core, TdCore.Search.Cluster)
   end
 end
