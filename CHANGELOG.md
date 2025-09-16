@@ -7,12 +7,11 @@
 - [TD-7417]: 
   - Pass config or options to forcemerge in refresh function:
     - Force merge can run async.
-    - Clean up previously completed async tasks.
     - Tune max num of shards.
 
-### Changed
+### Changed  
 
-- [TD-7417] Force merge in hot swap async by default.
+- [TD-7417] Refresh is not a blocking operation.
 
 ## [7.10.1] 2025-09-15
 
