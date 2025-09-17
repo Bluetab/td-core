@@ -13,6 +13,12 @@
 
 - [TD-7417] Refresh is not a blocking operation.
 
+## [7.10.2] 2025-09-16
+
+### Changed
+
+- [TD-7345] Update `td-cluster` version
+
 ## [7.10.1] 2025-09-15
 
 ### Changed
