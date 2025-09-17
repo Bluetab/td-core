@@ -6,6 +6,24 @@
 
 - [TD-7327] Update td-cache and td-df-lib to add Link Approvals.
 
+## [7.10.2] 2025-09-16
+
+### Changed
+
+- [TD-7345] Update `td-cluster` version
+
+## [7.10.1] 2025-09-15
+
+### Changed
+
+- [TD-7364] Embedding management supports inserting all embeddings or targeting specific ones by ID.
+
+## [7.10.0] 2025-09-09
+
+### Added
+
+- [TD-7175] Upgrade td-cluster versions
+
 ## [7.8.1] 2025-07-22
 
 ### Added

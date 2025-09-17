@@ -13,5 +13,5 @@ defmodule TdCore.Search.IndexWorker do
   defdelegate delete(index, ids_or_tuple), to: @worker
   defdelegate get_index_workers, to: @worker
   defdelegate reindex(index, ids), to: @worker
-  defdelegate put_embeddings(index), to: @worker
+  defdelegate put_embeddings(index, ids), to: @worker
 end
