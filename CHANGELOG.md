@@ -1,15 +1,21 @@
 # Changelog
 
+## [7.10.4]
+
+### Added
+
+- # [TD-7446] Add support for filtering by multiple types in maybe_filter function
+
 ## [7.10.3] 2025-09-19
 
 ### Added
 
-- [TD-7417]: 
+- [TD-7417]:
   - Pass config or options to forcemerge in refresh function:
     - Force merge can run async.
     - Tune max num of shards.
 
-### Changed  
+### Changed
 
 - [TD-7417] Refresh is not a blocking operation.
 
