@@ -4,6 +4,7 @@ defmodule TdCore.Search.IndexerTest do
   import ExUnit.CaptureLog
   require Logger
 
+  alias TdCore.Search.Cluster
   alias TdCore.Search.Indexer
 
   describe "log_bulk_post" do
@@ -345,6 +346,68 @@ defmodule TdCore.Search.IndexerTest do
                %{alias: "alias_2", documents: 24, key: "index_2", size: 789_123},
                %{alias: nil, documents: 55, key: "index_3", size: 42}
              ] = Indexer.list_indexes()
+    end
+  end
+
+  describe "refresh" do
+    test "refreshes index with default params" do
+      Mox.expect(ElasticsearchMock, :request, 1, fn _, :post, "/concepts/_refresh", _, [] ->
+        {:ok, :success}
+      end)
+
+      Mox.expect(ElasticsearchMock, :request, 1, fn _,
+                                                    :post,
+                                                    "/concepts/_forcemerge?max_num_segments=5",
+                                                    _,
+                                                    [] ->
+        {:ok, :success}
+      end)
+
+      assert :ok == Indexer.refresh(Cluster, "concepts")
+    end
+
+    test "refreshes index with opt params" do
+      Mox.expect(ElasticsearchMock, :request, 1, fn _, :post, "/concepts/_refresh", _, [] ->
+        {:ok, :success}
+      end)
+
+      Mox.expect(ElasticsearchMock, :request, 1, fn _,
+                                                    :post,
+                                                    "/concepts/_forcemerge?max_num_segments=10&wait_for_completion=true",
+                                                    _,
+                                                    [] ->
+        {:ok, :success}
+      end)
+
+      assert :ok ==
+               Indexer.refresh(Cluster, "concepts",
+                 forcemerge_options: [
+                   max_num_segments: 10,
+                   wait_for_completion: true
+                 ]
+               )
+    end
+
+    test "rejects nil opt param" do
+      Mox.expect(ElasticsearchMock, :request, 1, fn _, :post, "/concepts/_refresh", _, [] ->
+        {:ok, :success}
+      end)
+
+      Mox.expect(ElasticsearchMock, :request, 1, fn _,
+                                                    :post,
+                                                    "/concepts/_forcemerge?max_num_segments=10",
+                                                    _,
+                                                    [] ->
+        {:ok, :success}
+      end)
+
+      assert :ok ==
+               Indexer.refresh(Cluster, "concepts",
+                 forcemerge_options: [
+                   max_num_segments: 10,
+                   wait_for_completion: nil
+                 ]
+               )
     end
   end
 end
