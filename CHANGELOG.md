@@ -6,6 +6,19 @@
 
 - [TD-7327] Update td-cache and td-df-lib to add Link Approvals.
 
+## [7.10.3] 2025-09-19
+
+### Added
+
+- [TD-7417]: 
+  - Pass config or options to forcemerge in refresh function:
+    - Force merge can run async.
+    - Tune max num of shards.
+
+### Changed  
+
+- [TD-7417] Refresh is not a blocking operation.
+
 ## [7.10.2] 2025-09-16
 
 ### Changed
