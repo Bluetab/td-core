@@ -4,7 +4,7 @@
 
 ### Added
 
-- [TD-7327] Update td-cache and td-df-lib to add Link Approvals.
+- [TD-7301] Update td-cache and td-df-lib to add Link Approvals.
 
 ## [7.10.4] 2025-09-22
 
