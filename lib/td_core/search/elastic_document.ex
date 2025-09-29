@@ -94,6 +94,9 @@ defmodule TdCore.Search.ElasticDocument do
   defp maybe_filter(fields, type) when is_binary(type),
     do: Enum.filter(fields, &(Map.get(&1, "type") == type))
 
+  defp maybe_filter(fields, types) when is_list(types),
+    do: Enum.filter(fields, &(Map.get(&1, "type") in types))
+
   defp maybe_filter(fields, _type), do: fields
 
   defp maybe_filter_widget(fields, widgets) when is_list(widgets),

@@ -189,17 +189,28 @@ defmodule TdCore.Search.Indexer do
          {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
          {:index_clean_starting, :ok} <-
            {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
-         {:index_refresh, :ok} <- {:index_refresh, Index.refresh(config, name)} do
+         {:index_refresh, :ok} <- {:index_refresh, refresh(config, name)} do
       Logger.info(
         "Hot swap successful, finished reindexing, pointing alias #{alias_name} -> #{name}"
       )
 
       {:ok, name}
     else
-      {process_key, error} ->
-        delete_index =
-          Application.get_env(:td_core, TdCore.Search.Cluster)[:delete_existing_index]
+      {:index_refresh, error} ->
+        Logger.warning(
+          "Hot swap of index #{name} finished successfully with refresh operation failed with the following error: #{inspect(error)}"
+        )
 
+        Logger.warning(
+          "While not mandatory, performing a manual refresh can help maintain optimal index performance"
+        )
+
+        Logger.info("Pointing alias #{alias_name} -> #{name}")
+
+        {:ok, name}
+
+      {process_key, error} ->
+        delete_index = Keyword.get(cluster_config(), :delete_existing_index)
         log_hot_swap_errors(name, process_key, error)
 
         delete_existing_index(name, alias_name, Cluster, delete_index)
@@ -327,6 +338,19 @@ defmodule TdCore.Search.Indexer do
     "#{Enum.count(exceptions)} errors"
   end
 
+  def refresh(cluster, name, opts \\ []) do
+    forcemerge_options = forcemerge_config(opts)
+
+    with {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
+         {:ok, _} <-
+           Elasticsearch.post(
+             cluster,
+             "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
+             %{}
+           ),
+         do: :ok
+  end
+
   defp message(%Elasticsearch.Exception{} = e) do
     "(ES) #{info_document_id(e)}#{Exception.message(e)}"
   end
@@ -382,5 +406,18 @@ defmodule TdCore.Search.Indexer do
     Elasticsearch.put(Cluster, "/#{alias_name}/_mappings", %{
       "properties" => %{"embeddings" => %{"properties" => embedding_properties}}
     })
+  end
+
+  defp forcemerge_config(opts) do
+    default_config = Keyword.get(cluster_config(), :forcemerge_options, [])
+
+    opts
+    |> Keyword.get(:forcemerge_options, default_config)
+    |> Keyword.put_new(:max_num_segments, 5)
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp cluster_config do
+    Application.get_env(:td_core, TdCore.Search.Cluster)
   end
 end
