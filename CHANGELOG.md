@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.11.1] 2025-09-30
+
+### Changed
+
+- [TD-7401] Update td-cache, td-df-lib and td-cluster versions
+
 ## [7.11.0] 2025-09-24
 
 ### Added
