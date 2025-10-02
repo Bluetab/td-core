@@ -54,15 +54,12 @@ defmodule TdCore.Search.Indexer do
     alias_name = Cluster.alias_name(index)
     ensure_index_exists(index)
 
-    case Elasticsearch.put_document(Cluster, document, alias_name) do
-      {:ok, response} ->
-        Logger.info("Successfully indexed document #{document.id || "unknown"}")
-        {:ok, response}
-
-      {:error, reason} ->
-        Logger.error("Failed to index document: #{inspect(reason)}")
-        {:error, reason}
-    end
+    [document]
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+    |> Enum.to_list()
+    |> Enum.join("")
+    |> then(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+    |> then(&log_bulk_post(alias_name, &1, @action))
   end
 
   def index_documents_batch(index, documents) when is_list(documents) do
