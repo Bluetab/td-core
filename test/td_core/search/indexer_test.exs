@@ -2,7 +2,7 @@ defmodule TdCore.Search.IndexerTest do
   use ExUnit.Case
 
   import ExUnit.CaptureLog
-  require Logger
+  import Mox
 
   alias TdCore.Search.Cluster
   alias TdCore.Search.Indexer
@@ -408,6 +408,17 @@ defmodule TdCore.Search.IndexerTest do
                    wait_for_completion: nil
                  ]
                )
+    end
+  end
+
+  describe "ensure_index_exists/1" do
+    test "returns :ok if index exists" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :get, "/string_test_alias", _, [] ->
+        {:ok, %{"string_test_alias" => %{}}}
+      end)
+
+      assert :ok = Indexer.ensure_index_exists(:test_alias)
     end
   end
 end

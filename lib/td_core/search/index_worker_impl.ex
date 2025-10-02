@@ -34,6 +34,14 @@ defmodule TdCore.Search.IndexWorkerImpl do
     |> Enum.map(&Supervisor.child_spec({TdCore.Search.IndexWorkerImpl, &1}, id: &1))
   end
 
+  def index_document(index, document) do
+    GenServer.call(index, {:index_document, document})
+  end
+
+  def index_documents_batch(index, documents) do
+    GenServer.call(index, {:index_documents_batch, documents})
+  end
+
   ## EventStream.Consumer Callbacks
   def consume(events) do
     index_scope = get_index_template_scope()
@@ -93,6 +101,30 @@ defmodule TdCore.Search.IndexWorkerImpl do
       )
 
     {:reply, reply, index}
+  end
+
+  @impl GenServer
+  def handle_call({:index_document, document}, _from, index) do
+    Logger.info("Indexing document for #{index}")
+
+    Timer.time(
+      fn -> Indexer.index_document(index, document) end,
+      fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
+    )
+
+    {:reply, :ok, index}
+  end
+
+  @impl GenServer
+  def handle_call({:index_documents_batch, documents}, _from, index) do
+    Logger.info("Indexing #{length(documents)} documents for #{index}")
+
+    Timer.time(
+      fn -> Indexer.index_documents_batch(index, documents) end,
+      fn millis, _ -> Logger.info("#{index} batch indexed in #{millis}ms") end
+    )
+
+    {:reply, :ok, index}
   end
 
   defp get_indexes(module) do

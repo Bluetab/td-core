@@ -50,6 +50,57 @@ defmodule TdCore.Search.Indexer do
 
   def reindex(index, id), do: reindex(index, [id])
 
+  def index_document(index, document) do
+    alias_name = Cluster.alias_name(index)
+    ensure_index_exists(index)
+
+    [document]
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+    |> Enum.to_list()
+    |> Enum.join("")
+    |> then(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+    |> then(&log_bulk_post(alias_name, &1, @action))
+  end
+
+  def index_documents_batch(index, documents) when is_list(documents) do
+    alias_name = Cluster.alias_name(index)
+    ensure_index_exists(index)
+
+    documents
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+    |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+    |> Stream.map(&Enum.join(&1, ""))
+    |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+    |> Stream.map(&log_bulk_post(alias_name, &1, @action))
+    |> Stream.run()
+  end
+
+  def ensure_index_exists(index) do
+    alias_name = Cluster.alias_name(index)
+
+    case Elasticsearch.get(Cluster, "/#{alias_name}") do
+      {:ok, _} ->
+        :ok
+
+      {:error, _} ->
+        create_index_from_config(index)
+    end
+  end
+
+  defp create_index_from_config(index) do
+    alias_name = Cluster.alias_name(index)
+    settings = Cluster.setting(index, :settings)
+
+    index_body = %{
+      mappings: settings.mappings,
+      settings: %{
+        analysis: settings.analysis
+      }
+    }
+
+    Elasticsearch.put(Cluster, "/#{alias_name}", index_body)
+  end
+
   def put_embeddings(index, :all) do
     alias_name = Cluster.alias_name(index)
 
