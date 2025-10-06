@@ -16,7 +16,7 @@ defmodule TdCore.Search.ElasticDocument do
   @exact %{exact: %{type: "text", analyzer: "exact_analyzer"}}
   @text_like_types ~w(text search_as_you_type)
   @supported_langs ~w(en es)
-  @disabled_field_types ~w(table url copy image)
+  @disabled_field_types ~w(url copy image table)
   @entity_types ~w(domain hierarchy system user)
   @date_types ~w(date datetime)
   @translatable_widgets ~w(enriched_text string textarea)
@@ -68,7 +68,7 @@ defmodule TdCore.Search.ElasticDocument do
     |> Enum.into(%{})
   end
 
-  defp get_mappings(fields, opts) do
+  defp get_mappings(fields, opts \\ []) do
     {:ok, default_locale} = I18nCache.get_default_locale()
     active_locales = I18nCache.get_active_locales!() -- [default_locale]
 
@@ -126,6 +126,15 @@ defmodule TdCore.Search.ElasticDocument do
          external_id: %{type: "text", fields: @raw}
        }
      }}
+  end
+
+  def field_mapping(%{
+        "name" => name,
+        "type" => "dynamic_table",
+        "values" => %{"table_columns" => columns}
+      }) do
+    properties = columns |> get_mappings() |> Map.new()
+    {name, %{type: "nested", properties: properties}}
   end
 
   def field_mapping(%{"name" => name}) do

@@ -69,6 +69,30 @@ defmodule TestCacheHelpers do
             "type" => "user_group",
             "values" => %{"role_groups" => "Rol User"},
             "widget" => "dropdown"
+          },
+          %{
+            "cardinality" => "*",
+            "default" => %{"origin" => "default", "value" => ""},
+            "group" => "",
+            "label" => "table",
+            "name" => "table",
+            "subscribable" => false,
+            "type" => "dynamic_table",
+            "values" => %{
+              "table_columns" => [
+                %{
+                  "name" => "col1",
+                  "cardinality" => "?",
+                  "default" => %{"origin" => "default", "value" => ""},
+                  "group" => "",
+                  "label" => "col1",
+                  "type" => "string",
+                  "values" => nil,
+                  "widget" => "string"
+                }
+              ]
+            },
+            "widget" => "dynamic_table"
           }
         ],
         "name" => "test-group"

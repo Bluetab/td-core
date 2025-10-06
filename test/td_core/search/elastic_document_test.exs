@@ -21,7 +21,8 @@ defmodule TdCore.Search.ElasticDocumentTest do
                "multi-group" => %{},
                "multi-user" => %{},
                "single-group" => %{},
-               "single-user" => %{}
+               "single-user" => %{},
+               "table" => %{}
              } = ElasticDocument.get_dynamic_mappings("ts")
     end
 
@@ -39,6 +40,23 @@ defmodule TdCore.Search.ElasticDocumentTest do
                "single-group" => %{},
                "single-user" => %{}
              } = ElasticDocument.get_dynamic_mappings("ts", type: ["user", "user_group"])
+    end
+
+    test "returns dynamic table mappings" do
+      assert %{
+               "table" => %{
+                 type: "nested",
+                 properties: %{
+                   "col1" => %{
+                     type: "text",
+                     fields: %{
+                       raw: %{type: "keyword", null_value: ""},
+                       exact: %{type: "text", analyzer: "exact_analyzer"}
+                     }
+                   }
+                 }
+               }
+             } == ElasticDocument.get_dynamic_mappings("ts", type: ["dynamic_table"])
     end
   end
 
