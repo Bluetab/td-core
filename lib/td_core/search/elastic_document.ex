@@ -189,20 +189,6 @@ defmodule TdCore.Search.ElasticDocument do
     |> Map.merge(static_aggs)
   end
 
-  def nested_agg(field, content_field, field_type) do
-    %{
-      nested: %{path: "#{content_field}.#{field}"},
-      aggs: %{
-        distinct_search: %{
-          terms: %{
-            field: "#{content_field}.#{field}.external_id.raw",
-            size: Cluster.get_size_field(field_type)
-          }
-        }
-      }
-    }
-  end
-
   def dynamic_search_fields(scope, content_field) when is_binary(scope) do
     scope
     |> Templates.content_schema_for_scope()
@@ -260,6 +246,16 @@ defmodule TdCore.Search.ElasticDocument do
 
       %{"name" => field, "type" => "system"} ->
         {field, nested_agg(field, content_field, "system")}
+
+      %{
+        "name" => field,
+        "type" => "dynamic_table",
+        "values" => %{"table_columns" => table_columns}
+      } ->
+        {field,
+         %{
+           nested: %{path: "#{content_field}.#{field}", aggs: content_terms(table_columns, field)}
+         }}
 
       %{"name" => field, "type" => "user"} ->
         {field,
@@ -326,5 +322,19 @@ defmodule TdCore.Search.ElasticDocument do
 
   defp to_vector_mapping(%{collection_name: name, index_params: index_params}) do
     {"vector_#{name}", Map.put(index_params || %{}, "type", "dense_vector")}
+  end
+
+  defp nested_agg(field, content_field, field_type) do
+    %{
+      nested: %{path: "#{content_field}.#{field}"},
+      aggs: %{
+        distinct_search: %{
+          terms: %{
+            field: "#{content_field}.#{field}.external_id.raw",
+            size: Cluster.get_size_field(field_type)
+          }
+        }
+      }
+    }
   end
 end
