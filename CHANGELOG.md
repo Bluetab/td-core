@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7340] Support for dynamic_table template field search capabilities
+
 ## [7.11.1] 2025-09-30
 
 ### Changed
