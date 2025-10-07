@@ -54,6 +54,16 @@ defmodule TdCore.Search.Filters do
     {:must, nested_query}
   end
 
+  defp build_filter(
+         %{nested: %{path: path}, meta: %{nested_key: [_field | nested_field]}, aggs: aggs},
+         values
+       ) do
+    field = get_in(aggs, nested_field ++ [:terms, :field])
+    nested_query = %{nested: %{path: path, query: term(field, values)}}
+
+    {:must, nested_query}
+  end
+
   defp build_filter("must_not", values) do
     {:must_not, Enum.map(values, fn {key, term_values} -> term(key, term_values) end)}
   end
@@ -74,9 +84,21 @@ defmodule TdCore.Search.Filters do
   end
 
   defp build_filter(key, values, aggs) do
+    full_key = [key | _] = String.split(key, ".")
+
     aggs
     |> Map.get(key, _field = key)
-    |> build_filter(values)
+    |> then(fn
+      %{nested: _, meta: meta} = agg ->
+        meta = Map.put(meta, :nested_key, full_key)
+
+        agg
+        |> Map.put(:meta, meta)
+        |> build_filter(values)
+
+      agg ->
+        build_filter(agg, values)
+    end)
   end
 
   defp term(field, values) do

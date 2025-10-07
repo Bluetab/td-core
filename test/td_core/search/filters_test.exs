@@ -8,7 +8,9 @@ defmodule TdCore.Search.FiltersTest do
       filters = %{
         "foo" => "foo",
         "bar" => ["bar1", "bar2"],
-        "baz" => ["baz"]
+        "baz" => ["baz"],
+        "table.col1" => ["val1", "val2"],
+        "table.col2" => "val3"
       }
 
       aggs = %{
@@ -16,6 +18,14 @@ defmodule TdCore.Search.FiltersTest do
         "bar" => %{
           nested: %{path: "content.bar"},
           aggs: %{distinct_search: %{terms: %{field: "content.bar.xyzzy"}}}
+        },
+        "table" => %{
+          meta: %{type: "dynamic_table"},
+          aggs: %{
+            "col1" => %{terms: %{size: 500, field: "content.dependent.col1.raw"}},
+            "col2" => %{terms: %{size: 500, field: "content.dependent.col2.raw"}}
+          },
+          nested: %{path: "content.dependent"}
         }
       }
 
@@ -23,6 +33,18 @@ defmodule TdCore.Search.FiltersTest do
              |> Enum.sort()
              |> Filters.build_filters(aggs, %{must: %{wtf: %{}}}) == %{
                must: [
+                 %{
+                   nested: %{
+                     path: "content.dependent",
+                     query: %{term: %{"content.dependent.col2.raw" => "val3"}}
+                   }
+                 },
+                 %{
+                   nested: %{
+                     path: "content.dependent",
+                     query: %{terms: %{"content.dependent.col1.raw" => ["val1", "val2"]}}
+                   }
+                 },
                  %{term: %{"foo_field" => "foo"}},
                  %{term: %{"baz" => "baz"}},
                  %{
