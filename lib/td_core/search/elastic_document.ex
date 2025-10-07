@@ -254,7 +254,9 @@ defmodule TdCore.Search.ElasticDocument do
       } ->
         {field,
          %{
-           nested: %{path: "#{content_field}.#{field}", aggs: content_terms(table_columns, field)}
+           nested: %{path: "#{content_field}.#{field}"},
+           aggs: content_terms(table_columns, "#{content_field}.#{field}"),
+           meta: %{type: "dynamic_table"}
          }}
 
       %{"name" => field, "type" => "user"} ->
