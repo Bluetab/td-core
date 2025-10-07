@@ -84,20 +84,33 @@ defmodule TdCore.Search.Filters do
   end
 
   defp build_filter(key, values, aggs) do
-    full_key = [key | _] = String.split(key, ".")
+    case String.split(key, ".") do
+      [simple_key] -> filter_for_simple_field(simple_key, values, aggs)
+      [_ | _] = split_key -> filter_for_nested_field(split_key, key, values, aggs)
+    end
+  end
 
+  defp filter_for_simple_field(key, values, aggs) do
     aggs
     |> Map.get(key, _field = key)
+    |> build_filter(values)
+  end
+
+  defp filter_for_nested_field([parent_field | _] = split_key, key, values, aggs) do
+    aggs
+    |> Map.get(parent_field)
     |> then(fn
       %{nested: _, meta: meta} = agg ->
-        meta = Map.put(meta, :nested_key, full_key)
+        meta = Map.put(meta, :nested_key, split_key)
 
         agg
         |> Map.put(:meta, meta)
         |> build_filter(values)
 
-      agg ->
-        build_filter(agg, values)
+      nil ->
+        aggs
+        |> Map.get(key, _field = key)
+        |> build_filter(values)
     end)
   end
 
