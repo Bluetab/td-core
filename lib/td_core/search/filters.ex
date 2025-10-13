@@ -107,7 +107,7 @@ defmodule TdCore.Search.Filters do
         |> Map.put(:meta, meta)
         |> build_filter(values)
 
-      nil ->
+      _other ->
         aggs
         |> Map.get(key, _field = key)
         |> build_filter(values)
