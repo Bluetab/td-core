@@ -16,7 +16,7 @@ defmodule TdCore.Search.ElasticDocument do
   @exact %{exact: %{type: "text", analyzer: "exact_analyzer"}}
   @text_like_types ~w(text search_as_you_type)
   @supported_langs ~w(en es)
-  @disabled_field_types ~w(table url copy image)
+  @disabled_field_types ~w(url copy image table)
   @entity_types ~w(domain hierarchy system user)
   @date_types ~w(date datetime)
   @translatable_widgets ~w(enriched_text string textarea)
@@ -68,7 +68,7 @@ defmodule TdCore.Search.ElasticDocument do
     |> Enum.into(%{})
   end
 
-  defp get_mappings(fields, opts) do
+  defp get_mappings(fields, opts \\ []) do
     {:ok, default_locale} = I18nCache.get_default_locale()
     active_locales = I18nCache.get_active_locales!() -- [default_locale]
 
@@ -128,6 +128,15 @@ defmodule TdCore.Search.ElasticDocument do
      }}
   end
 
+  def field_mapping(%{
+        "name" => name,
+        "type" => "dynamic_table",
+        "values" => %{"table_columns" => columns}
+      }) do
+    properties = columns |> get_mappings() |> Map.new()
+    {name, %{type: "nested", properties: properties}}
+  end
+
   def field_mapping(%{"name" => name}) do
     {name, %{type: "text", fields: Map.merge(@raw, @exact)}}
   end
@@ -178,20 +187,6 @@ defmodule TdCore.Search.ElasticDocument do
     content_schema
     |> content_terms(content_field)
     |> Map.merge(static_aggs)
-  end
-
-  def nested_agg(field, content_field, field_type) do
-    %{
-      nested: %{path: "#{content_field}.#{field}"},
-      aggs: %{
-        distinct_search: %{
-          terms: %{
-            field: "#{content_field}.#{field}.external_id.raw",
-            size: Cluster.get_size_field(field_type)
-          }
-        }
-      }
-    }
   end
 
   def dynamic_search_fields(scope, content_field) when is_binary(scope) do
@@ -251,6 +246,18 @@ defmodule TdCore.Search.ElasticDocument do
 
       %{"name" => field, "type" => "system"} ->
         {field, nested_agg(field, content_field, "system")}
+
+      %{
+        "name" => field,
+        "type" => "dynamic_table",
+        "values" => %{"table_columns" => table_columns}
+      } ->
+        {field,
+         %{
+           nested: %{path: "#{content_field}.#{field}"},
+           aggs: content_terms(table_columns, "#{content_field}.#{field}"),
+           meta: %{type: "dynamic_table"}
+         }}
 
       %{"name" => field, "type" => "user"} ->
         {field,
@@ -317,5 +324,19 @@ defmodule TdCore.Search.ElasticDocument do
 
   defp to_vector_mapping(%{collection_name: name, index_params: index_params}) do
     {"vector_#{name}", Map.put(index_params || %{}, "type", "dense_vector")}
+  end
+
+  defp nested_agg(field, content_field, field_type) do
+    %{
+      nested: %{path: "#{content_field}.#{field}"},
+      aggs: %{
+        distinct_search: %{
+          terms: %{
+            field: "#{content_field}.#{field}.external_id.raw",
+            size: Cluster.get_size_field(field_type)
+          }
+        }
+      }
+    }
   end
 end

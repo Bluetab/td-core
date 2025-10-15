@@ -112,7 +112,9 @@ defmodule TdCore.Search do
   defp format_aggregations(aggregations, _) do
     aggregations
     |> Map.to_list()
-    |> Enum.into(%{}, &filter_values/1)
+    |> Enum.map(&filter_values/1)
+    |> List.flatten()
+    |> Map.new()
   end
 
   defp filter_values({"taxonomy", %{"buckets" => buckets}}) do
@@ -166,6 +168,17 @@ defmodule TdCore.Search do
      }}
   end
 
+  defp filter_values({name, %{"meta" => %{"type" => "dynamic_table"}} = content}) do
+    content
+    |> Enum.filter(fn {_nested_field, values} ->
+      is_map(values) and Map.has_key?(values, "buckets")
+    end)
+    |> Enum.map(&filter_values/1)
+    |> Enum.map(fn {nested_key, values} ->
+      {"#{name}.#{nested_key}", Map.put(values, :type, :dynamic_table)}
+    end)
+  end
+
   defp filter_values({name, %{"buckets" => buckets}}) do
     {
       name,
@@ -181,6 +194,8 @@ defmodule TdCore.Search do
   end
 
   defp filter_values({name, %{"doc_count" => 0}}), do: {name, %{values: []}}
+
+  defp filter_values({name, _other}), do: {name, %{values: []}}
 
   defp bucket_key(%{"key_as_string" => key}) when key in ["true", "false"], do: key
   defp bucket_key(%{"key" => key}), do: key
