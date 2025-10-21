@@ -21,6 +21,7 @@ defmodule TdCore.Search.ElasticDocument do
   @date_types ~w(date datetime)
   @translatable_widgets ~w(enriched_text string textarea)
   @excluded_search_field_types @disabled_field_types ++ @entity_types ++ @date_types
+  @default_index_type "suggestions"
 
   defmacro __using__(_) do
     quote do
@@ -38,6 +39,7 @@ defmodule TdCore.Search.ElasticDocument do
         sort: %{type: "keyword", normalizer: "sortable"}
       }
       @exact %{exact: %{type: "text", analyzer: "exact_analyzer"}}
+      @default_index_type "suggestions"
 
       def get_dynamic_mappings(scope, opts \\ []),
         do: ElasticDocument.get_dynamic_mappings(scope, opts)
@@ -57,7 +59,7 @@ defmodule TdCore.Search.ElasticDocument do
 
       defdelegate add_locales(fields), to: ElasticDocument
       defdelegate apply_lang_settings(index_config), to: ElasticDocument
-      defdelegate get_embedding_mappings(), to: ElasticDocument
+      defdelegate get_embedding_mappings(index_type \\ @default_index_type), to: ElasticDocument
     end
   end
 
@@ -84,8 +86,8 @@ defmodule TdCore.Search.ElasticDocument do
     |> List.flatten()
   end
 
-  def get_embedding_mappings do
-    case Indices.list(enabled: true) do
+  def get_embedding_mappings(index_type \\ @default_index_type) do
+    case Indices.list(index_type: index_type, enabled: true) do
       {:ok, indices} -> Enum.into(indices, %{}, &to_vector_mapping/1)
       _error -> %{}
     end
@@ -316,6 +318,7 @@ defmodule TdCore.Search.ElasticDocument do
   end
 
   defp to_vector_mapping(%{collection_name: name, index_params: index_params}) do
+    ### REVIEW TD-7302: añadirle un type dense vector.
     {"vector_#{name}", Map.put(index_params || %{}, "type", "dense_vector")}
   end
 end

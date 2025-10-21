@@ -87,16 +87,22 @@ defmodule TdCore.Search.Indexer do
     end
   end
 
-  defp create_index_from_config(index) do
+  def create_index_from_config(index) do
     alias_name = Cluster.alias_name(index)
     settings = Cluster.setting(index, :settings)
 
-    index_body = %{
-      mappings: settings.mappings,
-      settings: %{
-        analysis: settings.analysis
+    ## REVIEW TD-7302: añadirle un type dense vector.
+    ## Aqui se tiene que obtener el mappgin existente
+    mappings = mappings_from_alias(alias_name)
+
+    index_body =
+      %{
+        mappings: mappings,
+        settings: %{
+          analysis: settings.analysis
+        }
       }
-    }
+      |> IO.inspect(label: "index_body -->")
 
     Elasticsearch.put(Cluster, "/#{alias_name}", index_body)
   end
@@ -121,7 +127,9 @@ defmodule TdCore.Search.Indexer do
 
   @update_action "update"
   def put_embeddings(index, ids) when is_list(ids) do
-    alias_name = Cluster.alias_name(index)
+    alias_name =
+      Cluster.alias_name(index)
+      |> IO.inspect(label: "alias_name -->")
 
     store = store_from_alias(alias_name)
 

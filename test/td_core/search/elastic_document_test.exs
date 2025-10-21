@@ -85,7 +85,7 @@ defmodule TdCore.Search.ElasticDocumentTest do
     test "gets existing embedding mappings from ai indices" do
       Indices.list_indices(
         &Mox.expect/4,
-        [enabled: true],
+        [index_type: "suggestions", enabled: true],
         {:ok, [%{collection_name: "collection_name", index_params: %{"dims" => "384"}}]}
       )
 
@@ -96,7 +96,7 @@ defmodule TdCore.Search.ElasticDocumentTest do
     test "returns default response on error node down reponse" do
       Indices.list_indices(
         &Mox.expect/4,
-        [enabled: true],
+        [index_type: "suggestions", enabled: true],
         {:error, :nodedown}
       )
 
