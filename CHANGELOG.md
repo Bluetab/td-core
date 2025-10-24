@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-7617] Enhance stringify_keys function to handle DateTime 
+
 ## [7.11.1] 2025-09-30
 
 ### Changed
