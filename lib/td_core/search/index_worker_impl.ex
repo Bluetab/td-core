@@ -121,12 +121,13 @@ defmodule TdCore.Search.IndexWorkerImpl do
   def handle_call({:index_document, document}, _from, index) do
     Logger.info("Indexing document for #{index}")
 
-    Timer.time(
-      fn -> Indexer.index_document(index, document) end,
-      fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
-    )
+    response =
+      Timer.time(
+        fn -> Indexer.index_document(index, document) end,
+        fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
+      )
 
-    {:noreply, index}
+    {:reply, response, index}
   end
 
   @impl GenServer
