@@ -325,7 +325,6 @@ defmodule TdCore.Search.ElasticDocument do
   end
 
   defp to_vector_mapping(%{collection_name: name, index_params: index_params}) do
-    ### REVIEW TD-7302: añadirle un type dense vector.
     {"vector_#{name}", Map.put(index_params || %{}, "type", "dense_vector")}
   end
 
