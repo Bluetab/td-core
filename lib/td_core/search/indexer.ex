@@ -189,6 +189,11 @@ defmodule TdCore.Search.Indexer do
     Enum.map(ids, &Elasticsearch.delete_document(Cluster, &1, alias_name))
   end
 
+  def delete_index_documents_by_query(index, query) do
+    alias_name = Cluster.alias_name(index)
+    Elasticsearch.post(Cluster, "/#{alias_name}/_delete_by_query", query)
+  end
+
   def list_indexes do
     {:ok, aliases} = Elasticsearch.get(Cluster, "_alias")
 

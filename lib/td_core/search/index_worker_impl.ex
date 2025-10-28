@@ -19,7 +19,11 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   def delete(index, ids_or_tuple) do
-    GenServer.call(index, {:delete, ids_or_tuple})
+    GenServer.cast(index, {:delete, ids_or_tuple})
+  end
+
+  def delete_index_documents_by_query(index, query) do
+    GenServer.call(index, {:delete_index_documents_by_query, query})
   end
 
   def put_embeddings(index, ids) do
@@ -93,14 +97,24 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   @impl GenServer
-  def handle_call({:delete, ids_or_tuple}, _from, index) do
-    reply =
+  def handle_cast({:delete, ids_or_tuple}, index) do
+    Timer.time(
+      fn -> Indexer.delete(index, ids_or_tuple) end,
+      fn millis, _ -> Logger.info("#{index} deleted in #{millis}ms") end
+    )
+
+    {:noreply, index}
+  end
+
+  @impl GenServer
+  def handle_call({:delete_index_documents_by_query, query}, _from, index) do
+    response =
       Timer.time(
-        fn -> Indexer.delete(index, ids_or_tuple) end,
-        fn millis, _ -> Logger.info("#{index} deleted in #{millis}ms") end
+        fn -> Indexer.delete_index_documents_by_query(index, query) end,
+        fn millis, _ -> Logger.info("#{index} documents deleted in #{millis}ms") end
       )
 
-    {:reply, reply, index}
+    {:reply, response, index}
   end
 
   @impl GenServer
@@ -112,7 +126,7 @@ defmodule TdCore.Search.IndexWorkerImpl do
       fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
     )
 
-    {:reply, :ok, index}
+    {:noreply, index}
   end
 
   @impl GenServer
