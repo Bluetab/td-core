@@ -14,9 +14,13 @@ defmodule TdCore.Utils.CollectionUtils do
 
   def stringify_keys(map, deep \\ false)
 
+  def stringify_keys(%DateTime{} = datetime, _), do: datetime
+  def stringify_keys(%Date{} = date, _), do: date
+
   def stringify_keys(map, deep) when is_struct(map) do
     map
     |> Map.from_struct()
+    |> Map.drop([:__meta__])
     |> stringify_keys(deep)
   end
 
@@ -25,9 +29,13 @@ defmodule TdCore.Utils.CollectionUtils do
     |> Enum.into(%{}, fn {k, v} -> {stringify_key(k), maybe_stringfy_children(v, deep)} end)
   end
 
+  def stringify_keys([_ | _] = list, deep) do
+    Enum.map(list, &stringify_keys(&1, deep))
+  end
+
   def stringify_keys(value, _deep), do: value
 
-  defp maybe_stringfy_children(v, true), do: stringify_keys(v)
+  defp maybe_stringfy_children(v, true), do: stringify_keys(v, true)
   defp maybe_stringfy_children(v, _), do: v
 
   defp stringify_key(key) when is_atom(key), do: Atom.to_string(key)

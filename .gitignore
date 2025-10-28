@@ -27,3 +27,5 @@ td_core-*.tar
 .elixir_ls
 .tool-versions
 TODO.md
+
+*.DS_Store
