@@ -39,11 +39,11 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   def index_document(index, document) do
-    GenServer.cast(index, {:index_document, document})
+    GenServer.call(index, {:index_document, document})
   end
 
   def index_documents_batch(index, documents) do
-    GenServer.cast(index, {:index_documents_batch, documents})
+    GenServer.call(index, {:index_documents_batch, documents})
   end
 
   ## EventStream.Consumer Callbacks
@@ -107,27 +107,29 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   @impl GenServer
-  def handle_cast({:index_document, document}, index) do
+  def handle_call({:index_document, document}, _from, index) do
     Logger.info("Indexing document for #{index}")
 
-    Timer.time(
-      fn -> Indexer.index_document(index, document) end,
-      fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
-    )
+    response =
+      Timer.time(
+        fn -> Indexer.index_document(index, document) end,
+        fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
+      )
 
-    {:noreply, index}
+    {:reply, response, index}
   end
 
   @impl GenServer
-  def handle_cast({:index_documents_batch, documents}, index) do
+  def handle_call({:index_documents_batch, documents}, _from, index) do
     Logger.info("Indexing #{length(documents)} documents for #{index}")
 
-    Timer.time(
-      fn -> Indexer.index_documents_batch(index, documents) end,
-      fn millis, _ -> Logger.info("#{index} batch indexed in #{millis}ms") end
-    )
+    response =
+      Timer.time(
+        fn -> Indexer.index_documents_batch(index, documents) end,
+        fn millis, _ -> Logger.info("#{index} batch indexed in #{millis}ms") end
+      )
 
-    {:noreply, index}
+    {:reply, response, index}
   end
 
   @impl GenServer
