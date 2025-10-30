@@ -350,10 +350,12 @@ defmodule TdCore.Search.Indexer do
 
   def log_bulk_post(index, {:error, error}, _action) do
     Logger.error("#{index}: bulk indexing encountered errors #{inspect(error)}")
+    {:error, error}
   end
 
   def log_bulk_post(index, error, _action) do
     Logger.error("#{index}: bulk indexing encountered errors #{inspect(error)}")
+    {:error, error}
   end
 
   def log_bulk_post_items_errors(errors, index, action) do
