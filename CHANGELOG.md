@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fix
+
+- [TD-7619] Fix date and datetime format and validation
+
 ## [7.12.0] 2025-10-28
 
 ### Added
