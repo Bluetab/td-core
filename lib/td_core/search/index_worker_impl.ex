@@ -26,6 +26,10 @@ defmodule TdCore.Search.IndexWorkerImpl do
     GenServer.cast(index, {:put_embeddings, ids})
   end
 
+  def refresh_links(index, ids) do
+    GenServer.cast(index, {:refresh_links, ids})
+  end
+
   def get_index_workers do
     :td_core
     |> Application.get_env(TdCore.Search.Cluster, [])
@@ -80,6 +84,13 @@ defmodule TdCore.Search.IndexWorkerImpl do
       fn -> Indexer.put_embeddings(index, ids) end,
       fn millis, _ -> Logger.info("#{index} embeddings put in #{millis} ms") end
     )
+
+    {:noreply, index}
+  end
+
+  @impl GenServer
+  def handle_cast({:refresh_links, ids}, index) do
+    :ok = Indexer.refresh_links(index, ids)
 
     {:noreply, index}
   end

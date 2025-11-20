@@ -9,4 +9,5 @@ defmodule TdCore.Search.IndexWorkerBehaviour do
   @callback reindex(index, ids) :: :ok
   @callback delete(index, ids) :: term()
   @callback get_index_workers() :: list()
+  @callback refresh_links(index, ids) :: :ok
 end
