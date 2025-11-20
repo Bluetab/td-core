@@ -28,4 +28,8 @@ defmodule TdCore.Search.IndexWorkerMock do
   def get_index_workers do
     [TdCore.Search.IndexWorkerMock]
   end
+
+  def refresh_links(index, ids) do
+    Agent.update(__MODULE__, &[{:refresh_links, index, ids} | &1])
+  end
 end
