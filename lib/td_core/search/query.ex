@@ -13,11 +13,14 @@ defmodule TdCore.Search.Query do
       filters
       |> List.wrap()
       |> Enum.reduce(%{}, fn
+        filters = %{}, acu when map_size(filters) == 0 ->
+          acu
+
         %{must_not: must_not_filters}, acu ->
           Map.update(acu, :must_not, must_not_filters, fn mn -> mn ++ must_not_filters end)
 
         f, acu ->
-          Map.update(acu, :must, [f], fn filters -> [f | filters] end)
+          Map.update(acu, :filter, [f], fn filters -> [f | filters] end)
       end)
 
     params
@@ -88,12 +91,12 @@ defmodule TdCore.Search.Query do
     |> List.wrap()
     |> Enum.reduce(acc, fn field, acc ->
       filter = exists(field)
-      Map.update(acc, :must, filter, &[filter | List.wrap(&1)])
+      Map.update(acc, :filter, filter, &[filter | List.wrap(&1)])
     end)
   end
 
-  defp maybe_optimize(%{must: _} = bool) do
-    Map.update!(bool, :must, &optimize/1)
+  defp maybe_optimize(%{filter: _} = bool) do
+    Map.update!(bool, :filter, &optimize/1)
   end
 
   defp maybe_optimize(%{} = bool), do: bool
