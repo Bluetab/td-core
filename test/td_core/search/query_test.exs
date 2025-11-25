@@ -68,17 +68,19 @@ defmodule TdCore.Search.QueryTest do
       }
 
       multi_match_phrase_prefix = %{
-        multi_match: %{
-          type: "phrase_prefix",
-          fields: ["name^3"],
-          lenient: true,
-          slop: 2
+        must: %{
+          multi_match: %{
+            type: "phrase_prefix",
+            fields: ["name^3"],
+            lenient: true,
+            slop: 2
+          }
         }
       }
 
       assert Query.build_query(@match_all, params,
                aggs: @aggs,
-               clauses: [multi_match_phrase_prefix]
+               clauses: multi_match_phrase_prefix
              ) == %{
                bool: %{
                  filter: %{term: %{"type.raw" => "foo"}},
@@ -101,11 +103,13 @@ defmodule TdCore.Search.QueryTest do
         "query" => "foo"
       }
 
-      simple_query_string = %{simple_query_string: %{fields: ["name^3"]}}
+      simple_query_string = %{
+        must: %{simple_query_string: %{fields: ["name^3"]}}
+      }
 
       assert Query.build_query(@match_all, params,
                aggs: @aggs,
-               clauses: [simple_query_string]
+               clauses: simple_query_string
              ) == %{
                bool: %{
                  filter: %{term: %{"type.raw" => "foo"}},
