@@ -97,6 +97,55 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
+    test "returns a must and should query when clauses are provided" do
+      params = %{
+        "must" => %{"type" => ["foo"]},
+        "query" => "foo"
+      }
+
+      clauses = %{
+        must: %{
+          multi_match: %{
+            type: "bool_prefix",
+            fields: ["ngram_name^3"],
+            lenient: true,
+            slop: 2
+          }
+        },
+        should: %{
+          multi_match: %{
+            type: "phrase_prefix",
+            fields: ["name^3"]
+          }
+        }
+      }
+
+      assert Query.build_query(@match_all, params,
+               aggs: @aggs,
+               clauses: clauses
+             ) == %{
+               bool: %{
+                 filter: %{term: %{"type.raw" => "foo"}},
+                 must: %{
+                   multi_match: %{
+                     type: "bool_prefix",
+                     query: "foo",
+                     fields: ["ngram_name^3"],
+                     lenient: true,
+                     slop: 2
+                   }
+                 },
+                 should: %{
+                   multi_match: %{
+                     type: "phrase_prefix",
+                     query: "foo",
+                     fields: ["name^3"]
+                   }
+                 }
+               }
+             }
+    end
+
     test "returns a simple_query_string query when clauses are provided" do
       params = %{
         "must" => %{"type" => ["foo"]},
