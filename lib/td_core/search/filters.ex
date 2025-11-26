@@ -29,6 +29,11 @@ defmodule TdCore.Search.Filters do
     build_filter(key, values, aggs)
   end
 
+  defp build_filter({"should", values}, aggs) do
+    {:should,
+     Enum.map(values, fn {key, term_values} -> filter_for_simple_field(key, term_values, aggs) end)}
+  end
+
   defp build_filter({key, values}, aggs) do
     build_filter(key, values, aggs)
   end

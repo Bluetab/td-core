@@ -92,5 +92,16 @@ defmodule TdCore.Search.FiltersTest do
                  %{filter: %{range: %{field => %{"gte" => "now-1d/d"}}}}
       end
     end
+
+    test "handles nested should filters" do
+      filters = %{"id" => [1, 2], "parent_id" => [3, 4]}
+
+      assert Filters.build_filters(%{"should" => filters}, %{}, %{}) == %{
+               should: [
+                 filter: %{terms: %{"id" => [1, 2]}},
+                 filter: %{terms: %{"parent_id" => [3, 4]}}
+               ]
+             }
+    end
   end
 end
