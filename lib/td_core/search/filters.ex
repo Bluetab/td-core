@@ -30,8 +30,14 @@ defmodule TdCore.Search.Filters do
   end
 
   defp build_filter({"should", values}, aggs) do
-    {:should,
-     Enum.map(values, fn {key, term_values} -> filter_for_simple_field(key, term_values, aggs) end)}
+    value =
+      values
+      |> Enum.map(fn {key, term_values} ->
+        filter_for_simple_field(key, term_values, aggs)
+      end)
+      |> Enum.map(fn {:filter, filter} -> filter end)
+
+    {:filter, %{bool: %{should: value, minimum_should_match: 1}}}
   end
 
   defp build_filter({key, values}, aggs) do

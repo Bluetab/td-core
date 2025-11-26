@@ -97,10 +97,15 @@ defmodule TdCore.Search.FiltersTest do
       filters = %{"id" => [1, 2], "parent_id" => [3, 4]}
 
       assert Filters.build_filters(%{"should" => filters}, %{}, %{}) == %{
-               should: [
-                 filter: %{terms: %{"id" => [1, 2]}},
-                 filter: %{terms: %{"parent_id" => [3, 4]}}
-               ]
+               filter: %{
+                 bool: %{
+                   should: [
+                     %{terms: %{"id" => [1, 2]}},
+                     %{terms: %{"parent_id" => [3, 4]}}
+                   ],
+                   minimum_should_match: 1
+                 }
+               }
              }
     end
   end

@@ -146,6 +146,31 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
+    test "includes should filters when provided" do
+      params = %{
+        "must" => %{"type" => ["foo"]},
+        "filters" => %{"should" => %{"id" => [1, 2], "parent_id" => [3, 4]}}
+      }
+
+      assert Query.build_query(@match_all, params, aggs: @aggs) ==
+               %{
+                 bool: %{
+                   filter: [
+                     %{term: %{"type.raw" => "foo"}},
+                     %{
+                       bool: %{
+                         should: [
+                           %{terms: %{"id" => [1, 2]}},
+                           %{terms: %{"parent_id" => [3, 4]}}
+                         ],
+                         minimum_should_match: 1
+                       }
+                     }
+                   ]
+                 }
+               }
+    end
+
     test "returns a simple_query_string query when clauses are provided" do
       params = %{
         "must" => %{"type" => ["foo"]},
