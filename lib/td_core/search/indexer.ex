@@ -91,7 +91,8 @@ defmodule TdCore.Search.Indexer do
     alias_name = Cluster.alias_name(index)
     settings = Cluster.setting(index, :settings)
 
-    mappings = mappings_from_alias(alias_name)
+    mappings_result = mappings_from_alias(alias_name)
+    mappings = Map.get(mappings_result, :mappings, %{properties: %{}})
 
     index_body =
       %{
@@ -191,6 +192,7 @@ defmodule TdCore.Search.Indexer do
 
   def delete_index_documents_by_query(index, query) do
     alias_name = Cluster.alias_name(index)
+    ensure_index_exists(index)
     Elasticsearch.post(Cluster, "/#{alias_name}/_delete_by_query", query)
   end
 
