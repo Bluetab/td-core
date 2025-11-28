@@ -1,11 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7711]:
+  - Replace filters in `must` for `filters` elastic search clause
+  - Support for new search query with `must` and `should` elastic search clauses
+
 ## [7.14.0] 2025-11-27
 
 ### Added
 
 - [TD-7302]:
-  - Index_type for elastic emmedings
+  - Index_type for elastic embeddings
   - Add elastic index for RAG functionality
 
 ## [7.12.0] 2025-10-28
