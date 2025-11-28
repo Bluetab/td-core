@@ -19,6 +19,10 @@ defmodule TdCore.Search.IndexWorkerMock do
     Agent.update(__MODULE__, &[{:delete, index, ids} | &1])
   end
 
+  def delete_index_documents_by_query(index, query) do
+    Agent.update(__MODULE__, &[{:delete_index_documents_by_query, index, query} | &1])
+  end
+
   def consume(_events), do: :ok
 
   def put_embeddings(index, ids) do
@@ -27,5 +31,13 @@ defmodule TdCore.Search.IndexWorkerMock do
 
   def get_index_workers do
     [TdCore.Search.IndexWorkerMock]
+  end
+
+  def index_document(index, document) do
+    Agent.update(__MODULE__, &[{:index_document, index, document} | &1])
+  end
+
+  def index_documents_batch(index, documents) do
+    Agent.update(__MODULE__, &[{:index_documents_batch, index, documents} | &1])
   end
 end

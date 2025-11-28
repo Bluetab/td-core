@@ -50,6 +50,61 @@ defmodule TdCore.Search.Indexer do
 
   def reindex(index, id), do: reindex(index, [id])
 
+  def index_document(index, document) do
+    alias_name = Cluster.alias_name(index)
+    ensure_index_exists(index)
+
+    [document]
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+    |> Enum.to_list()
+    |> Enum.join("")
+    |> then(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+    |> then(&log_bulk_post(alias_name, &1, @action))
+  end
+
+  def index_documents_batch(index, documents) when is_list(documents) do
+    alias_name = Cluster.alias_name(index)
+    ensure_index_exists(index)
+
+    documents
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+    |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+    |> Stream.map(&Enum.join(&1, ""))
+    |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+    |> Stream.map(&log_bulk_post(alias_name, &1, @action))
+    |> Stream.run()
+  end
+
+  def ensure_index_exists(index) do
+    alias_name = Cluster.alias_name(index)
+
+    case Elasticsearch.get(Cluster, "/#{alias_name}") do
+      {:ok, _} ->
+        :ok
+
+      {:error, _} ->
+        create_index_from_config(index)
+    end
+  end
+
+  def create_index_from_config(index) do
+    alias_name = Cluster.alias_name(index)
+    settings = Cluster.setting(index, :settings)
+
+    mappings_result = mappings_from_alias(alias_name)
+    mappings = Map.get(mappings_result, :mappings, %{properties: %{}})
+
+    index_body =
+      %{
+        mappings: mappings,
+        settings: %{
+          analysis: settings.analysis
+        }
+      }
+
+    Elasticsearch.put(Cluster, "/#{alias_name}", index_body)
+  end
+
   def put_embeddings(index, :all) do
     alias_name = Cluster.alias_name(index)
 
@@ -133,6 +188,12 @@ defmodule TdCore.Search.Indexer do
   def delete(index, ids) do
     alias_name = Cluster.alias_name(index)
     Enum.map(ids, &Elasticsearch.delete_document(Cluster, &1, alias_name))
+  end
+
+  def delete_index_documents_by_query(index, query) do
+    alias_name = Cluster.alias_name(index)
+    ensure_index_exists(index)
+    Elasticsearch.post(Cluster, "/#{alias_name}/_delete_by_query", query)
   end
 
   def list_indexes do
@@ -291,10 +352,12 @@ defmodule TdCore.Search.Indexer do
 
   def log_bulk_post(index, {:error, error}, _action) do
     Logger.error("#{index}: bulk indexing encountered errors #{inspect(error)}")
+    {:error, error}
   end
 
   def log_bulk_post(index, error, _action) do
     Logger.error("#{index}: bulk indexing encountered errors #{inspect(error)}")
+    {:error, error}
   end
 
   def log_bulk_post_items_errors(errors, index, action) do

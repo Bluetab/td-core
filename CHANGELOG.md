@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.14.0] 2025-11-27
+
+### Added
+
+- [TD-7302]:
+  - Index_type for elastic emmedings
+  - Add elastic index for RAG functionality
+
 ## [7.12.0] 2025-10-28
 
 ### Added
