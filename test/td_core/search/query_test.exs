@@ -146,6 +146,58 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
+    test "returns a term query when clauses are provided" do
+      params = %{
+        "must" => %{"type" => ["type"]},
+        "query" => "foo"
+      }
+
+      clauses = %{
+        must: %{
+          multi_match: %{
+            type: "bool_prefix",
+            fields: ["ngram_name^3"],
+            lenient: true,
+            slop: 2
+          }
+        },
+        should: [
+          %{
+            multi_match: %{
+              type: "phrase_prefix",
+              fields: ["name^3"]
+            }
+          },
+          %{term: %{"name.exact" => %{"boost" => 2.0}}}
+        ]
+      }
+
+      assert Query.build_query(@match_all, params, aggs: @aggs, clauses: clauses) == %{
+               bool: %{
+                 filter: %{term: %{"type.raw" => "type"}},
+                 must: %{
+                   multi_match: %{
+                     type: "bool_prefix",
+                     query: "foo",
+                     fields: ["ngram_name^3"],
+                     lenient: true,
+                     slop: 2
+                   }
+                 },
+                 should: [
+                   %{
+                     multi_match: %{
+                       type: "phrase_prefix",
+                       query: "foo",
+                       fields: ["name^3"]
+                     }
+                   },
+                   %{term: %{"name.exact" => %{"boost" => 2.0, "value" => "foo"}}}
+                 ]
+               }
+             }
+    end
+
     test "includes should filters when provided" do
       params = %{
         "must" => %{"type" => ["foo"]},

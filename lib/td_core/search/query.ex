@@ -184,6 +184,15 @@ defmodule TdCore.Search.Query do
     %{clause | multi_match: Map.put(multi_match, :query, query)}
   end
 
+  defp fetch_clauses(query, %{term: term_query} = clause) do
+    term =
+      Map.new(term_query, fn
+        {key, value} -> {key, Map.put(value, "value", query)}
+      end)
+
+    %{clause | term: term}
+  end
+
   defp fetch_clauses(query, %{simple_query_string: simple_query_string} = clause) do
     %{clause | simple_query_string: Map.put(simple_query_string, :query, maybe_wildcard(query))}
   end
