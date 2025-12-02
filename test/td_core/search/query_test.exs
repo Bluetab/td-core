@@ -41,7 +41,7 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
-                 must: %{simple_query_string: %{query: "foo*"}},
+                 must: %{simple_query_string: %{query: "\"foo\""}},
                  filter: %{match_all: %{}}
                }
              }
@@ -56,7 +56,7 @@ defmodule TdCore.Search.QueryTest do
       assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
                  filter: %{term: %{"type.raw" => "foo"}},
-                 must: %{simple_query_string: %{query: "foo*"}}
+                 must: %{simple_query_string: %{query: "\"foo\""}}
                }
              }
     end
@@ -239,7 +239,7 @@ defmodule TdCore.Search.QueryTest do
              ) == %{
                bool: %{
                  filter: %{term: %{"type.raw" => "foo"}},
-                 must: %{simple_query_string: %{query: "foo*", fields: ["name^3"]}}
+                 must: %{simple_query_string: %{query: "\"foo\"", fields: ["name^3"]}}
                }
              }
     end

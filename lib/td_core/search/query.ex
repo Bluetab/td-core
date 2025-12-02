@@ -150,14 +150,14 @@ defmodule TdCore.Search.Query do
     %{exists: %{field: field}}
   end
 
-  def maybe_wildcard(nil), do: nil
+  defp maybe_wildcard(nil), do: nil
 
-  def maybe_wildcard(query) when is_binary(query) do
+  defp maybe_wildcard(query) when is_binary(query) do
     case String.last(query) do
       "\"" -> query
       ")" -> query
       " " -> query
-      _ -> "#{query}*"
+      _ -> "\"#{query}\""
     end
   end
 
