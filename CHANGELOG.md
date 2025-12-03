@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.14.1] 2025-12-03
+
+### Changed
+
+- [TD-7746] Update td-df-lib
+
 ## [7.14.0] 2025-11-27
 
 ### Added
@@ -7,6 +13,12 @@
 - [TD-7302]:
   - Index_type for elastic emmedings
   - Add elastic index for RAG functionality
+
+## [7.12.1] 2025-12-03
+
+### Changed
+
+- [TD-7746] Update td-df-lib
 
 ## [7.12.0] 2025-10-28
 
