@@ -15,4 +15,7 @@ defmodule TdCore.Search.IndexWorker do
   defdelegate reindex(index, ids), to: @worker
   defdelegate put_embeddings(index, ids), to: @worker
   defdelegate refresh_links(index, ids), to: @worker
+  defdelegate index_document(index, document), to: @worker
+  defdelegate index_documents_batch(index, documents), to: @worker
+  defdelegate delete_index_documents_by_query(index, query), to: @worker
 end

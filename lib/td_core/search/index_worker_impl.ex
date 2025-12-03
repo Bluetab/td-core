@@ -19,7 +19,11 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   def delete(index, ids_or_tuple) do
-    GenServer.call(index, {:delete, ids_or_tuple})
+    GenServer.cast(index, {:delete, ids_or_tuple})
+  end
+
+  def delete_index_documents_by_query(index, query) do
+    GenServer.call(index, {:delete_index_documents_by_query, query})
   end
 
   def put_embeddings(index, ids) do
@@ -36,6 +40,14 @@ defmodule TdCore.Search.IndexWorkerImpl do
     |> Keyword.fetch!(:aliases)
     |> Map.keys()
     |> Enum.map(&Supervisor.child_spec({TdCore.Search.IndexWorkerImpl, &1}, id: &1))
+  end
+
+  def index_document(index, document) do
+    GenServer.call(index, {:index_document, document})
+  end
+
+  def index_documents_batch(index, documents) do
+    GenServer.call(index, {:index_documents_batch, documents})
   end
 
   ## EventStream.Consumer Callbacks
@@ -96,14 +108,50 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   @impl GenServer
-  def handle_call({:delete, ids_or_tuple}, _from, index) do
-    reply =
+  def handle_cast({:delete, ids_or_tuple}, index) do
+    Timer.time(
+      fn -> Indexer.delete(index, ids_or_tuple) end,
+      fn millis, _ -> Logger.info("#{index} deleted in #{millis}ms") end
+    )
+
+    {:noreply, index}
+  end
+
+  @impl GenServer
+  def handle_call({:index_document, document}, _from, index) do
+    Logger.info("Indexing document for #{index}")
+
+    response =
       Timer.time(
-        fn -> Indexer.delete(index, ids_or_tuple) end,
-        fn millis, _ -> Logger.info("#{index} deleted in #{millis}ms") end
+        fn -> Indexer.index_document(index, document) end,
+        fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
       )
 
-    {:reply, reply, index}
+    {:reply, response, index}
+  end
+
+  @impl GenServer
+  def handle_call({:index_documents_batch, documents}, _from, index) do
+    Logger.info("Indexing #{length(documents)} documents for #{index}")
+
+    response =
+      Timer.time(
+        fn -> Indexer.index_documents_batch(index, documents) end,
+        fn millis, _ -> Logger.info("#{index} batch indexed in #{millis}ms") end
+      )
+
+    {:reply, response, index}
+  end
+
+  @impl GenServer
+  def handle_call({:delete_index_documents_by_query, query}, _from, index) do
+    response =
+      Timer.time(
+        fn -> Indexer.delete_index_documents_by_query(index, query) end,
+        fn millis, _ -> Logger.info("#{index} documents deleted in #{millis}ms") end
+      )
+
+    {:reply, response, index}
   end
 
   defp get_indexes(module) do
@@ -115,9 +163,8 @@ defmodule TdCore.Search.IndexWorkerImpl do
   defp get_index_template_scope do
     :td_core
     |> get_indexes()
-    |> Enum.map(fn {index, resource} ->
+    |> Map.new(fn {index, resource} ->
       {Keyword.get(resource, :template_scope), index}
     end)
-    |> Map.new()
   end
 end
