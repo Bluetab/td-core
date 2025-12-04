@@ -8,6 +8,12 @@
   - Replace filters in `must` for `filters` elastic search clause
   - Support for new search query with `must` and `should` elastic search clauses
 
+## [7.14.1] 2025-12-03
+
+### Changed
+
+- [TD-7746] Update td-df-lib
+
 ## [7.14.0] 2025-11-27
 
 ### Added
@@ -15,6 +21,12 @@
 - [TD-7302]:
   - Index_type for elastic embeddings
   - Add elastic index for RAG functionality
+
+## [7.12.1] 2025-12-03
+
+### Changed
+
+- [TD-7746] Update td-df-lib
 
 ## [7.12.0] 2025-10-28
 
