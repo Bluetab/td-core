@@ -8,6 +8,12 @@
   - Replace filters in `must` for `filters` elastic search clause
   - Support for new search query with `must` and `should` elastic search clauses
 
+## [7.14.2] 2025-12-04
+
+### Fix
+
+- [TD-7619] Updated `td_df_lib` dependency to fix date and datetime format and validation
+
 ## [7.14.1] 2025-12-03
 
 ### Changed
