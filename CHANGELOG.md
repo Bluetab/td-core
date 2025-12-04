@@ -1,10 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [7.14.0] 2025-12-04
 
 ### Fix
 
-- [TD-7619] Fix date and datetime format and validation
+- [TD-7619] Updated `td_df_lib` dependency to fix date and datetime format and validation
 
 ## [7.12.0] 2025-10-28
 
