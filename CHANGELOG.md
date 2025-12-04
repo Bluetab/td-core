@@ -1,10 +1,30 @@
 # Changelog
 
-## [7.14.0] 2025-12-04
+## [7.14.2] 2025-12-04
 
 ### Fix
 
 - [TD-7619] Updated `td_df_lib` dependency to fix date and datetime format and validation
+
+## [7.14.1] 2025-12-03
+
+### Changed
+
+- [TD-7746] Update td-df-lib
+
+## [7.14.0] 2025-11-27
+
+### Added
+
+- [TD-7302]:
+  - Index_type for elastic emmedings
+  - Add elastic index for RAG functionality
+
+## [7.12.1] 2025-12-03
+
+### Changed
+
+- [TD-7746] Update td-df-lib
 
 ## [7.12.0] 2025-10-28
 
