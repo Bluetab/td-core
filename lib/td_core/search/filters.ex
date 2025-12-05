@@ -29,12 +29,23 @@ defmodule TdCore.Search.Filters do
     build_filter(key, values, aggs)
   end
 
+  defp build_filter({"should", values}, aggs) do
+    value =
+      values
+      |> Enum.map(fn {key, term_values} ->
+        filter_for_simple_field(key, term_values, aggs)
+      end)
+      |> Enum.map(fn {:filter, filter} -> filter end)
+
+    {:filter, %{bool: %{should: value, minimum_should_match: 1}}}
+  end
+
   defp build_filter({key, values}, aggs) do
     build_filter(key, values, aggs)
   end
 
   defp build_filter(%{terms: %{field: field}}, values) do
-    {:must, term(field, values)}
+    {:filter, term(field, values)}
   end
 
   defp build_filter(
@@ -51,7 +62,7 @@ defmodule TdCore.Search.Filters do
       }
     }
 
-    {:must, nested_query}
+    {:filter, nested_query}
   end
 
   defp build_filter(
@@ -61,7 +72,7 @@ defmodule TdCore.Search.Filters do
     field = get_in(aggs, nested_field ++ [:terms, :field])
     nested_query = %{nested: %{path: path, query: term(field, values)}}
 
-    {:must, nested_query}
+    {:filter, nested_query}
   end
 
   defp build_filter("must_not", values) do
@@ -69,18 +80,18 @@ defmodule TdCore.Search.Filters do
   end
 
   defp build_filter("exists", value) do
-    {:must, %{exists: value}}
+    {:filter, %{exists: value}}
   end
 
   defp build_filter(field, value)
        when field in ["updated_at", "inserted_at", "start_date", "end_date", "last_change_at"] do
-    {:must, Query.range(field, value)}
+    {:filter, Query.range(field, value)}
   end
 
-  defp build_filter("ids", values), do: {:must, Query.ids(values)}
+  defp build_filter("ids", values), do: {:filter, Query.ids(values)}
 
   defp build_filter(field, values) when is_binary(field) do
-    {:must, term(field, values)}
+    {:filter, term(field, values)}
   end
 
   defp build_filter(key, values, aggs) do
