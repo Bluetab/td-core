@@ -6,6 +6,21 @@
 
 - [TD-7678] Update td-cluster
 
+## [7.14.3] 2025-12-05
+
+### Added
+
+- [TD-7711]:
+  - Replace filters in `must` for `filters` elastic search clause
+  - Support for new search query with `must` and `should` elastic search clauses
+
+## [7.14.2] 2025-12-04
+
+### Fixed
+
+- [TD-7619] Updated `td_df_lib` dependency to fix date and datetime format and validation
+
+
 ## [7.14.1] 2025-12-03
 
 ### Changed
@@ -17,7 +32,7 @@
 ### Added
 
 - [TD-7302]:
-  - Index_type for elastic emmedings
+  - Index_type for elastic embeddings
   - Add elastic index for RAG functionality
 
 ## [7.12.1] 2025-12-03
