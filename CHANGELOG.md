@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [7.14.3] 2025-12-05
 
 ### Added
 
