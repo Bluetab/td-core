@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.14.4] 2025-12-09
+
+### Changed
+
+- [TD-7678] Update td-cluster
+
 ## [7.14.3] 2025-12-05
 
 ### Added
@@ -10,9 +16,10 @@
 
 ## [7.14.2] 2025-12-04
 
-### Fix
+### Fixed
 
 - [TD-7619] Updated `td_df_lib` dependency to fix date and datetime format and validation
+
 
 ## [7.14.1] 2025-12-03
 
