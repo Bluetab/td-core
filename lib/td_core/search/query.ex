@@ -13,11 +13,14 @@ defmodule TdCore.Search.Query do
       filters
       |> List.wrap()
       |> Enum.reduce(%{}, fn
+        filters = %{}, acu when map_size(filters) == 0 ->
+          acu
+
         %{must_not: must_not_filters}, acu ->
           Map.update(acu, :must_not, must_not_filters, fn mn -> mn ++ must_not_filters end)
 
         f, acu ->
-          Map.update(acu, :must, [f], fn filters -> [f | filters] end)
+          Map.update(acu, :filter, [f], fn filters -> [f | filters] end)
       end)
 
     params
@@ -70,8 +73,24 @@ defmodule TdCore.Search.Query do
   end
 
   defp reduce_query({"query", query}, acc, opts) do
-    must_clauses = fetch_must_clauses(query, Keyword.get(opts, :clauses, []))
-    Map.update(acc, :must, must_clauses, &(must_clauses ++ List.wrap(&1)))
+    opts
+    |> Keyword.get(:clauses, %{})
+    |> then(fn
+      clauses when map_size(clauses) == 0 ->
+        must_clauses = [%{simple_query_string: %{query: maybe_wildcard(query)}}]
+        Map.update(acc, :must, must_clauses, &(must_clauses ++ List.wrap(&1)))
+
+      clauses ->
+        Enum.reduce(clauses, acc, fn
+          {:must, clauses}, acc ->
+            must_clauses = fetch_clauses(query, clauses)
+            Map.update(acc, :must, must_clauses, &(must_clauses ++ List.wrap(&1)))
+
+          {:should, clauses}, acc ->
+            should_clauses = fetch_clauses(query, clauses)
+            Map.update(acc, :should, should_clauses, &(should_clauses ++ List.wrap(&1)))
+        end)
+    end)
   end
 
   defp reduce_query({"without", fields}, acc, _) do
@@ -88,12 +107,15 @@ defmodule TdCore.Search.Query do
     |> List.wrap()
     |> Enum.reduce(acc, fn field, acc ->
       filter = exists(field)
-      Map.update(acc, :must, filter, &[filter | List.wrap(&1)])
+      Map.update(acc, :filter, filter, &[filter | List.wrap(&1)])
     end)
   end
 
-  defp maybe_optimize(%{must: _} = bool) do
-    Map.update!(bool, :must, &optimize/1)
+  defp maybe_optimize(%{filter: _} = bool) do
+    Map.new(bool, fn
+      {:filter, filters} -> {:filter, optimize(filters)}
+      other -> other
+    end)
   end
 
   defp maybe_optimize(%{} = bool), do: bool
@@ -128,14 +150,14 @@ defmodule TdCore.Search.Query do
     %{exists: %{field: field}}
   end
 
-  def maybe_wildcard(nil), do: nil
+  defp maybe_wildcard(nil), do: nil
 
-  def maybe_wildcard(query) when is_binary(query) do
+  defp maybe_wildcard(query) when is_binary(query) do
     case String.last(query) do
       "\"" -> query
       ")" -> query
       " " -> query
-      _ -> "#{query}*"
+      _ -> "\"#{query}\""
     end
   end
 
@@ -151,17 +173,27 @@ defmodule TdCore.Search.Query do
     %{bool: bool}
   end
 
-  defp fetch_must_clauses(query, []) do
+  defp fetch_clauses(query, []) do
     [%{simple_query_string: %{query: maybe_wildcard(query)}}]
   end
 
-  defp fetch_must_clauses(query, [single_clause]), do: [query_for_clause(query, single_clause)]
+  defp fetch_clauses(query, clauses) when is_list(clauses),
+    do: Enum.map(clauses, &fetch_clauses(query, &1))
 
-  defp query_for_clause(query, %{multi_match: multi_match} = clause) do
+  defp fetch_clauses(query, %{multi_match: multi_match} = clause) do
     %{clause | multi_match: Map.put(multi_match, :query, query)}
   end
 
-  defp query_for_clause(query, %{simple_query_string: simple_query_string} = clause) do
+  defp fetch_clauses(query, %{term: term_query} = clause) do
+    term =
+      Map.new(term_query, fn
+        {key, value} -> {key, Map.put(value, "value", query)}
+      end)
+
+    %{clause | term: term}
+  end
+
+  defp fetch_clauses(query, %{simple_query_string: simple_query_string} = clause) do
     %{clause | simple_query_string: Map.put(simple_query_string, :query, maybe_wildcard(query))}
   end
 end

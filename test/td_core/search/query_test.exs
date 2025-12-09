@@ -12,7 +12,7 @@ defmodule TdCore.Search.QueryTest do
 
   describe "build_query/1" do
     test "returns a boolean query with a match_all filter by default" do
-      assert Query.build_query(@match_all, %{}, %{aggs: @aggs}) == %{bool: %{must: @match_all}}
+      assert Query.build_query(@match_all, %{}, %{aggs: @aggs}) == %{bool: %{filter: @match_all}}
     end
 
     test "returns a boolean query with user-defined filters" do
@@ -20,7 +20,7 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
-                 must: %{term: %{"type.raw" => "foo"}}
+                 filter: %{term: %{"type.raw" => "foo"}}
                }
              }
 
@@ -28,7 +28,7 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
-                 must: [
+                 filter: [
                    %{term: %{"type.raw" => "foo"}},
                    %{terms: %{"status.raw" => ["bar", "baz"]}}
                  ]
@@ -41,7 +41,8 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
-                 must: %{simple_query_string: %{query: "foo*"}}
+                 must: %{simple_query_string: %{query: "\"foo\""}},
+                 filter: %{match_all: %{}}
                }
              }
     end
@@ -54,7 +55,8 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_all, params, aggs: @aggs) == %{
                bool: %{
-                 must: [%{simple_query_string: %{query: "foo*"}}, %{term: %{"type.raw" => "foo"}}]
+                 filter: %{term: %{"type.raw" => "foo"}},
+                 must: %{simple_query_string: %{query: "\"foo\""}}
                }
              }
     end
@@ -66,33 +68,159 @@ defmodule TdCore.Search.QueryTest do
       }
 
       multi_match_phrase_prefix = %{
-        multi_match: %{
-          type: "phrase_prefix",
-          fields: ["name^3"],
-          lenient: true,
-          slop: 2
+        must: %{
+          multi_match: %{
+            type: "phrase_prefix",
+            fields: ["name^3"],
+            lenient: true,
+            slop: 2
+          }
         }
       }
 
       assert Query.build_query(@match_all, params,
                aggs: @aggs,
-               clauses: [multi_match_phrase_prefix]
+               clauses: multi_match_phrase_prefix
              ) == %{
                bool: %{
-                 must: [
+                 filter: %{term: %{"type.raw" => "foo"}},
+                 must: %{
+                   multi_match: %{
+                     query: "foo",
+                     type: "phrase_prefix",
+                     fields: ["name^3"],
+                     lenient: true,
+                     slop: 2
+                   }
+                 }
+               }
+             }
+    end
+
+    test "returns a must and should query when clauses are provided" do
+      params = %{
+        "must" => %{"type" => ["foo"]},
+        "query" => "foo"
+      }
+
+      clauses = %{
+        must: %{
+          multi_match: %{
+            type: "bool_prefix",
+            fields: ["ngram_name^3"],
+            lenient: true,
+            slop: 2
+          }
+        },
+        should: %{
+          multi_match: %{
+            type: "phrase_prefix",
+            fields: ["name^3"]
+          }
+        }
+      }
+
+      assert Query.build_query(@match_all, params,
+               aggs: @aggs,
+               clauses: clauses
+             ) == %{
+               bool: %{
+                 filter: %{term: %{"type.raw" => "foo"}},
+                 must: %{
+                   multi_match: %{
+                     type: "bool_prefix",
+                     query: "foo",
+                     fields: ["ngram_name^3"],
+                     lenient: true,
+                     slop: 2
+                   }
+                 },
+                 should: %{
+                   multi_match: %{
+                     type: "phrase_prefix",
+                     query: "foo",
+                     fields: ["name^3"]
+                   }
+                 }
+               }
+             }
+    end
+
+    test "returns a term query when clauses are provided" do
+      params = %{
+        "must" => %{"type" => ["type"]},
+        "query" => "foo"
+      }
+
+      clauses = %{
+        must: %{
+          multi_match: %{
+            type: "bool_prefix",
+            fields: ["ngram_name^3"],
+            lenient: true,
+            slop: 2
+          }
+        },
+        should: [
+          %{
+            multi_match: %{
+              type: "phrase_prefix",
+              fields: ["name^3"]
+            }
+          },
+          %{term: %{"name.exact" => %{"boost" => 2.0}}}
+        ]
+      }
+
+      assert Query.build_query(@match_all, params, aggs: @aggs, clauses: clauses) == %{
+               bool: %{
+                 filter: %{term: %{"type.raw" => "type"}},
+                 must: %{
+                   multi_match: %{
+                     type: "bool_prefix",
+                     query: "foo",
+                     fields: ["ngram_name^3"],
+                     lenient: true,
+                     slop: 2
+                   }
+                 },
+                 should: [
                    %{
                      multi_match: %{
-                       query: "foo",
                        type: "phrase_prefix",
-                       fields: ["name^3"],
-                       lenient: true,
-                       slop: 2
+                       query: "foo",
+                       fields: ["name^3"]
                      }
                    },
-                   %{term: %{"type.raw" => "foo"}}
+                   %{term: %{"name.exact" => %{"boost" => 2.0, "value" => "foo"}}}
                  ]
                }
              }
+    end
+
+    test "includes should filters when provided" do
+      params = %{
+        "must" => %{"type" => ["foo"]},
+        "filters" => %{"should" => %{"id" => [1, 2], "parent_id" => [3, 4]}}
+      }
+
+      assert Query.build_query(@match_all, params, aggs: @aggs) ==
+               %{
+                 bool: %{
+                   filter: [
+                     %{term: %{"type.raw" => "foo"}},
+                     %{
+                       bool: %{
+                         should: [
+                           %{terms: %{"id" => [1, 2]}},
+                           %{terms: %{"parent_id" => [3, 4]}}
+                         ],
+                         minimum_should_match: 1
+                       }
+                     }
+                   ]
+                 }
+               }
     end
 
     test "returns a simple_query_string query when clauses are provided" do
@@ -101,17 +229,17 @@ defmodule TdCore.Search.QueryTest do
         "query" => "foo"
       }
 
-      simple_query_string = %{simple_query_string: %{fields: ["name^3"]}}
+      simple_query_string = %{
+        must: %{simple_query_string: %{fields: ["name^3"]}}
+      }
 
       assert Query.build_query(@match_all, params,
                aggs: @aggs,
-               clauses: [simple_query_string]
+               clauses: simple_query_string
              ) == %{
                bool: %{
-                 must: [
-                   %{simple_query_string: %{query: "foo*", fields: ["name^3"]}},
-                   %{term: %{"type.raw" => "foo"}}
-                 ]
+                 filter: %{term: %{"type.raw" => "foo"}},
+                 must: %{simple_query_string: %{query: "\"foo\"", fields: ["name^3"]}}
                }
              }
     end
@@ -124,7 +252,7 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(@match_none, params) == %{
                bool: %{
-                 must: [%{exists: %{field: "bar"}}, %{exists: %{field: "foo"}}, @match_none],
+                 filter: [%{exists: %{field: "bar"}}, %{exists: %{field: "foo"}}, @match_none],
                  must_not: %{exists: %{field: "baz"}}
                }
              }
@@ -153,7 +281,6 @@ defmodule TdCore.Search.QueryTest do
 
       assert Query.build_query(filters, params) == %{
                bool: %{
-                 must: %{},
                  must_not: %{term: %{"foo" => "bar"}}
                }
              }
