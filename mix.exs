@@ -35,7 +35,7 @@ defmodule TdCore.MixProject do
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
       {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "7.14.1"},
       {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "7.12.0"},
-      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "7.14.0"}
+      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", branch: "feature/td-7760"}
     ]
   end
 end
