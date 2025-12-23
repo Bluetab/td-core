@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [8.0.0] 2025-12-23
 
 - [TD-7760] Update td-df-lib
 
