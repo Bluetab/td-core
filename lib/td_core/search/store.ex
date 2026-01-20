@@ -13,7 +13,7 @@ defmodule TdCore.Search.Store do
     data
   end
 
-  def fetch(:data_structures, ids) do
+  def fetch(:structures, ids) do
     {:ok, data} = TdCluster.TdDd.Store.fetch(ids)
     data
   end
