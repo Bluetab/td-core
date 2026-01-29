@@ -30,6 +30,10 @@ defmodule TdCore.Search.IndexWorkerImpl do
     GenServer.cast(index, {:put_embeddings, ids})
   end
 
+  def refresh_links(index, ids) do
+    GenServer.cast(index, {:refresh_links, ids})
+  end
+
   def get_index_workers do
     :td_core
     |> Application.get_env(TdCore.Search.Cluster, [])
@@ -97,6 +101,13 @@ defmodule TdCore.Search.IndexWorkerImpl do
   end
 
   @impl GenServer
+  def handle_cast({:refresh_links, ids}, index) do
+    :ok = Indexer.refresh_links(index, ids)
+
+    {:noreply, index}
+  end
+
+  @impl GenServer
   def handle_cast({:delete, ids_or_tuple}, index) do
     Timer.time(
       fn -> Indexer.delete(index, ids_or_tuple) end,
@@ -152,9 +163,8 @@ defmodule TdCore.Search.IndexWorkerImpl do
   defp get_index_template_scope do
     :td_core
     |> get_indexes()
-    |> Enum.map(fn {index, resource} ->
+    |> Map.new(fn {index, resource} ->
       {Keyword.get(resource, :template_scope), index}
     end)
-    |> Map.new()
   end
 end

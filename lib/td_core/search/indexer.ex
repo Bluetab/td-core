@@ -9,6 +9,7 @@ defmodule TdCore.Search.Indexer do
   alias Elasticsearch.Index
   alias Elasticsearch.Index.Bulk
   alias TdCluster.Cluster.TdDd.Tasks
+  alias TdCluster.Cluster.TdLm
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocumentProtocol
 
@@ -190,6 +191,12 @@ defmodule TdCore.Search.Indexer do
     Enum.map(ids, &Elasticsearch.delete_document(Cluster, &1, alias_name))
   end
 
+  def refresh_links(index, ids) do
+    {:ok, _} = TdLm.refresh_search_data(index, ids)
+
+    :ok
+  end
+
   def delete_index_documents_by_query(index, query) do
     alias_name = Cluster.alias_name(index)
     ensure_index_exists(index)
@@ -200,10 +207,9 @@ defmodule TdCore.Search.Indexer do
     {:ok, aliases} = Elasticsearch.get(Cluster, "_alias")
 
     alias_by_index =
-      Enum.map(aliases, fn {key, value} ->
+      Map.new(aliases, fn {key, value} ->
         {key, value["aliases"] |> Map.keys() |> List.first()}
       end)
-      |> Enum.into(%{})
 
     {:ok, %{"indices" => indices}} = Elasticsearch.get(Cluster, "_stats/docs,store")
 
