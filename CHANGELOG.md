@@ -4,6 +4,12 @@
 
 ### Added
 
+- [TD-7861] Access dd store to fetch search data
+
+## [Unreleased]
+
+### Added
+
 - [TD-7696]:
   - Refresh search data in lm.
   - Access bg and qx search data
