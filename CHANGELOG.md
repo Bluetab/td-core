@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-7286] Generic XLSX upload functionality
+
 ## [8.0.1] 2025-12-26
 
 ### Changed

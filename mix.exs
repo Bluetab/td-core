@@ -31,9 +31,11 @@ defmodule TdCore.MixProject do
       {:jason, "~> 1.4.4"},
       {:guardian, "~> 2.3.2"},
       {:mox, "~> 1.2", only: :test},
+      {:elixlsx, "~> 0.6"},
+      {:xlsx_reader, "~> 0.8.7"},
       {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git"},
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
-      {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "7.14.1"},
+      {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", branch: "feature/td-7286"},
       {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "7.12.0"},
       {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "8.0.1"}
     ]
