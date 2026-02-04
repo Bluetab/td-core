@@ -24,9 +24,18 @@ defmodule TdCore.Search.Query do
       end)
 
     params
-    |> Map.take(["must", "query", "without", "with", "must_not", "filters"])
+    |> Map.take([
+      "must",
+      "query",
+      "without",
+      "with",
+      "must_not",
+      "filters",
+      "minimum_should_match"
+    ])
     |> Enum.reduce(filters, &reduce_query(&1, &2, opts))
     |> maybe_optimize()
+    |> dependent_statements()
     |> bool_query()
   end
 
@@ -111,6 +120,10 @@ defmodule TdCore.Search.Query do
     end)
   end
 
+  defp reduce_query({"minimum_should_match", value}, acc, _opts) do
+    Map.put(acc, :minimum_should_match, value)
+  end
+
   defp maybe_optimize(%{filter: _} = bool) do
     Map.new(bool, fn
       {:filter, filters} -> {:filter, optimize(filters)}
@@ -193,7 +206,17 @@ defmodule TdCore.Search.Query do
     %{clause | term: term}
   end
 
-  defp fetch_clauses(query, %{simple_query_string: simple_query_string} = clause) do
+  defp fetch_clauses(
+         query,
+         %{simple_query_string: %{quote_field_suffix: ".exact"} = simple_query_string} = clause
+       ) do
     %{clause | simple_query_string: Map.put(simple_query_string, :query, maybe_wildcard(query))}
   end
+
+  defp fetch_clauses(query, %{simple_query_string: simple_query_string} = clause) do
+    %{clause | simple_query_string: Map.put(simple_query_string, :query, query)}
+  end
+
+  defp dependent_statements(%{minimum_should_match: _, should: _} = bool), do: bool
+  defp dependent_statements(%{} = bool), do: Map.delete(bool, :minimum_should_match)
 end

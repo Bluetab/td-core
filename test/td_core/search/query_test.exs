@@ -146,6 +146,61 @@ defmodule TdCore.Search.QueryTest do
              }
     end
 
+    test "returns a query with minimum_should_match" do
+      params = %{
+        "query" => "foo",
+        "minimum_should_match" => 1
+      }
+
+      clauses = %{
+        should: [
+          %{
+            multi_match: %{
+              type: "bool_prefix",
+              fields: ["ngram_name^3"],
+              lenient: true,
+              slop: 2
+            }
+          },
+          %{simple_query_string: %{fields: ["name^3"]}}
+        ]
+      }
+
+      assert Query.build_query(@match_all, params, aggs: @aggs, clauses: clauses) ==
+               %{
+                 bool: %{
+                   filter: %{match_all: %{}},
+                   should: [
+                     %{
+                       multi_match: %{
+                         type: "bool_prefix",
+                         fields: ["ngram_name^3"],
+                         query: "foo",
+                         lenient: true,
+                         slop: 2
+                       }
+                     },
+                     %{simple_query_string: %{query: "foo", fields: ["name^3"]}}
+                   ],
+                   minimum_should_match: 1
+                 }
+               }
+    end
+
+    test "removes minimum_should_match when should clauses are not provided" do
+      params = %{
+        "query" => "foo",
+        "minimum_should_match" => 1
+      }
+
+      assert Query.build_query(@match_all, params, aggs: @aggs) == %{
+               bool: %{
+                 filter: %{match_all: %{}},
+                 must: %{simple_query_string: %{query: "\"foo\""}}
+               }
+             }
+    end
+
     test "returns a term query when clauses are provided" do
       params = %{
         "must" => %{"type" => ["type"]},
@@ -239,7 +294,7 @@ defmodule TdCore.Search.QueryTest do
              ) == %{
                bool: %{
                  filter: %{term: %{"type.raw" => "foo"}},
-                 must: %{simple_query_string: %{query: "\"foo\"", fields: ["name^3"]}}
+                 must: %{simple_query_string: %{query: "foo", fields: ["name^3"]}}
                }
              }
     end
