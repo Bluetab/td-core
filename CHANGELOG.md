@@ -6,15 +6,6 @@
 
 - [TD-7861] Access dd store to fetch search data
 
-## [Unreleased]
-
-### Added
-
-- [TD-7696]:
-  - Refresh search data in lm.
-  - Access bg and qx search data
-  - Enable options for building permissions
-
 ## [8.0.1] 2025-12-26
 
 ### Changed
