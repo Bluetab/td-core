@@ -44,6 +44,8 @@ defmodule TdCore.XLSX.UploadWorker do
   rescue
     e ->
       Logger.error("Error running upload worker for file: #{path}, error: #{inspect(e)}")
+      Logger.error(Exception.format(:error, e, __STACKTRACE__))
+
       UploadJobs.create_failed(job_id, inspect(e))
   end
 end
