@@ -9,6 +9,12 @@
   - Access bg and qx search data
   - Enable options for building permissions
 
+## [8.1.0] 2026-02-09
+
+### Added
+
+- [TD-7286] Generic XLSX upload functionality
+
 ## [8.0.1] 2025-12-26
 
 ### Changed
