@@ -30,9 +30,14 @@ defmodule TdCore.Search.Query do
     |> bool_query()
   end
 
-  def build_permission_filters(:none), do: @match_none
-  def build_permission_filters(:all), do: @match_all
-  def build_permission_filters(domain_ids), do: term_or_terms("domain_ids", domain_ids)
+  def build_permission_filters(_param, _opts \\ [])
+  def build_permission_filters(:none, _opts), do: @match_none
+  def build_permission_filters(:all, _opts), do: @match_all
+
+  def build_permission_filters(domain_ids, opts) do
+    field_prefix = Keyword.get(opts, :field_prefix, "")
+    term_or_terms("#{field_prefix}domain_ids", domain_ids)
+  end
 
   def should(%{} = query, clause), do: put_clause(query, :should, clause)
   def must(%{} = query, clause), do: put_clause(query, :must, clause)

@@ -33,6 +33,10 @@ defmodule TdCore.Search.IndexWorkerMock do
     [TdCore.Search.IndexWorkerMock]
   end
 
+  def refresh_links(index, ids) do
+    Agent.update(__MODULE__, &[{:refresh_links, index, ids} | &1])
+  end
+
   def index_document(index, document) do
     Agent.update(__MODULE__, &[{:index_document, index, document} | &1])
   end
