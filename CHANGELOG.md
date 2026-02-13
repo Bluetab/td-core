@@ -9,6 +9,12 @@
   - Access bg and qx search data
   - Enable options for building permissions
 
+## [8.2.0] 2026-02-12
+
+### Added
+
+- [TD-7861] Access dd store to fetch search data
+
 ## [8.1.0] 2026-02-09
 
 ### Added

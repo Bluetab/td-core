@@ -12,4 +12,9 @@ defmodule TdCore.Search.Store do
     {:ok, data} = TdCluster.TdQx.Store.fetch(quality_control_ids: ids)
     data
   end
+
+  def fetch(:structures, ids) do
+    {:ok, data} = TdCluster.TdDd.Store.fetch(ids)
+    data
+  end
 end
