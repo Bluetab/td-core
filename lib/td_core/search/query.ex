@@ -169,6 +169,7 @@ defmodule TdCore.Search.Query do
     case String.last(query) do
       "\"" -> query
       ")" -> query
+      "" -> query
       _ -> "\"#{query}\""
     end
   end
