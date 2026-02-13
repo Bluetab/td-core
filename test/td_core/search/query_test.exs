@@ -372,5 +372,18 @@ defmodule TdCore.Search.QueryTest do
                }
              }
     end
+
+    test "empty query string is not modified" do
+      params = %{
+        "query" => ""
+      }
+
+      assert Query.build_query(@match_all, params) == %{
+               bool: %{
+                 filter: %{match_all: %{}},
+                 must: %{simple_query_string: %{query: ""}}
+               }
+             }
+    end
   end
 end
