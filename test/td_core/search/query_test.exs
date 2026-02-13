@@ -359,5 +359,18 @@ defmodule TdCore.Search.QueryTest do
                }
              }
     end
+
+    test "quoted query string is not modified" do
+      params = %{
+        "query" => "\"foo\""
+      }
+
+      assert Query.build_query(@match_all, params) == %{
+               bool: %{
+                 filter: %{match_all: %{}},
+                 must: %{simple_query_string: %{query: "\"foo\""}}
+               }
+             }
+    end
   end
 end

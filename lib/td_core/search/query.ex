@@ -81,7 +81,9 @@ defmodule TdCore.Search.Query do
     acc
   end
 
-  defp reduce_query({"query", query}, acc, opts) do
+  defp reduce_query({"query", query}, acc, opts) when is_binary(query) do
+    query = String.trim(query)
+
     opts
     |> Keyword.get(:clauses, %{})
     |> then(fn
@@ -163,13 +165,10 @@ defmodule TdCore.Search.Query do
     %{exists: %{field: field}}
   end
 
-  defp maybe_wildcard(nil), do: nil
-
   defp maybe_wildcard(query) when is_binary(query) do
     case String.last(query) do
       "\"" -> query
       ")" -> query
-      " " -> query
       _ -> "\"#{query}\""
     end
   end
