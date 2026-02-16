@@ -54,7 +54,8 @@ defmodule TdCore.Search.IndexWorkerImpl do
   def consume(events) do
     index_scope = get_index_template_scope()
 
-    Enum.map(events, fn
+    events
+    |> Enum.map(fn
       %{event: "template_updated", scope: scope} ->
         Map.get(index_scope, String.to_atom(scope))
 
