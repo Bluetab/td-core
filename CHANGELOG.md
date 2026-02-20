@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-7883] Update td-cache
+
 ## [8.2.1] 2026-02-12
 ## [8.2.0] 2026-02-12
 
