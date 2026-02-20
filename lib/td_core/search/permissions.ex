@@ -5,7 +5,7 @@ defmodule TdCore.Search.Permissions do
 
   alias TdCore.Search.Query
 
-  def filter_for_permissions(permissions, claims) do
+  def filter_for_permissions(permissions, claims, opts \\ []) do
     permissions
     |> get_search_permissions(claims)
     |> Map.values()
@@ -18,7 +18,7 @@ defmodule TdCore.Search.Permissions do
     |> case do
       [] -> [Query.build_permission_filters(:all)]
       nil -> [Query.build_permission_filters(:none)]
-      domains -> [Query.build_permission_filters(MapSet.to_list(domains))]
+      domains -> [Query.build_permission_filters(MapSet.to_list(domains), opts)]
     end
   end
 
