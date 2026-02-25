@@ -59,6 +59,11 @@ defmodule TdCore.XLSX.BulkLoad do
       |> Enum.reduce(
         {[], [], 0, 0},
         fn item, {ids, updated_ids, errors, unchanged_count} ->
+          ### Aqui se tiene la informacion tanto del contenido de la plantilla
+          ## y la información de la plantilla, por lo que se puede validar el contenido
+          ## Validate.
+          ### La parte diferente es la comspirbación es si hay algun cambio en la plantilla
+
           case BulkLoadProtocol.bulk_load_item(ctx.impl_for, item, ctx) do
             {:error, {type, details}} ->
               UploadJobs.create_error(ctx.job_id, %{
