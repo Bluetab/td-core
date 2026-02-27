@@ -23,6 +23,7 @@ defmodule TdCore.XLSX.BulkLoad do
       Enum.into(headers, %{}, &{translate_fn.(&1, ctx.lang) || &1, &1})
     end
 
+    ## REVIEW TD-7949: En el extra content tiene la infromación de los dominios
     extra_context = Keyword.get(opts, :extra_context, %{})
 
     required_headers = translate.(required_headers)
@@ -35,8 +36,7 @@ defmodule TdCore.XLSX.BulkLoad do
     discarded_headers = translate.(discarded_headers)
 
     headers_ctx =
-      ctx
-      |> Map.merge(%{
+      Map.merge(ctx, %{
         required_headers: required_headers,
         headers: headers,
         discarded_headers: discarded_headers
@@ -44,15 +44,24 @@ defmodule TdCore.XLSX.BulkLoad do
 
     {valid_sheets, invalid_sheet_count} = validate_sheets_headers(raw_sheets, headers_ctx)
 
+    ## REVIEW TD-7949: Aqui se tiene la información del contenido de la plantilla
     params = parse_sheets(valid_sheets, headers_ctx)
+
+    ## REVIEW TD-7949: En el contexto se tiene:
+    ## El squema que se utiliza impl_for:
+    ## idioma, templates, job_id, claims, to_status, domain_ext_id_map
 
     ctx =
       valid_sheets
       |> Enum.map(&elem(&1, 0))
+      ## REVIEW TD-7949: Aqui se recupera las plantillas de los servicios
+      ### Por qué se envia el impl_for, si no se utiliza en el sheets_to_templates???
       |> then(&BulkLoadProtocol.sheets_to_templates(ctx.impl_for, &1))
       |> parse_templates(ctx.lang)
       |> then(&Map.put(ctx, :templates, &1))
       |> Map.merge(extra_context)
+
+    # |> IO.inspect(label: "ctx --->")
 
     {inserted_ids, updated_ids, error_count, unchanged_count} =
       params
@@ -178,11 +187,17 @@ defmodule TdCore.XLSX.BulkLoad do
       end)
 
     Enum.with_index(rows, fn row, index ->
+      # IO.inspect(row, label: "row --->")
+
+      ## REVIEW TD-7949: Aqui se tiene el contenido de la plantilla, por lo que se podría realizar
+      ## las validaciones en este punto???
       df_content =
         Enum.into(df_headers, %{}, fn {header, idx} ->
           value = Enum.at(row, idx)
           {header, %{"value" => value, "origin" => "file"}}
         end)
+
+      # |> IO.inspect(label: "df_content")
 
       base_headers
       |> Enum.into(%{}, fn {header, idx} ->
@@ -196,6 +211,7 @@ defmodule TdCore.XLSX.BulkLoad do
     end)
   end
 
+  ## REVIEW TD-7949: Aqui se parsea la plantilla para tener la información de la plantilla
   defp parse_templates(templates, lang) do
     Enum.into(templates, %{}, fn {df_name, template} ->
       content_schema = Format.flatten_content_fields(template.content, lang)
