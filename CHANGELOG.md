@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- [TD-7718] Update td-cache dependency (to avoid conflict in td-ai)
+
 ## [8.3.0] 2026-03-06
 
 ### Added
