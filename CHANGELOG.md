@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [8.3.1] 2026-03-12
 
 - [TD-7718] Update td-cache dependency (to avoid conflict in td-ai)
 
@@ -15,6 +15,7 @@
 - [TD-7860] Add quotes to simple query string when quoted suffix is exact
 
 ## [8.2.1] 2026-02-12
+
 ## [8.2.0] 2026-02-12
 
 ### Added
