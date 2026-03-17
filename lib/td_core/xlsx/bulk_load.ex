@@ -42,10 +42,12 @@ defmodule TdCore.XLSX.BulkLoad do
         discarded_headers: discarded_headers
       })
 
-    {valid_sheets, invalid_sheet_count} = validate_sheets_headers(raw_sheets, headers_ctx)
+    {valid_sheets, invalid_sheet_count} =
+      validate_sheets_headers(raw_sheets, headers_ctx)
 
     ## REVIEW TD-7949: Aqui se tiene la información del contenido de la plantilla
-    params = parse_sheets(valid_sheets, headers_ctx)
+    params =
+      parse_sheets(valid_sheets, headers_ctx)
 
     ## REVIEW TD-7949: En el contexto se tiene:
     ## El squema que se utiliza impl_for:
@@ -60,8 +62,6 @@ defmodule TdCore.XLSX.BulkLoad do
       |> parse_templates(ctx.lang)
       |> then(&Map.put(ctx, :templates, &1))
       |> Map.merge(extra_context)
-
-    # |> IO.inspect(label: "ctx --->")
 
     {inserted_ids, updated_ids, error_count, unchanged_count} =
       params
