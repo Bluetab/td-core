@@ -1,6 +1,27 @@
 # Changelog
 
+## [8.3.2] 2026-03-17
+
+- [TD-7916] refactor: streamline context merging and enhance item processing in bulk load
+
+## [8.3.1] 2026-03-12
+
+### Changed
+
+- [TD-7718] Update td-cache dependency (to avoid conflict in td-ai)
+
+## [8.3.0] 2026-03-06
+
+### Added
+
+- [TD-7860] Handle minimum_should_match
+
+### Changed
+
+- [TD-7860] Add quotes to simple query string when quoted suffix is exact
+
 ## [8.2.1] 2026-02-12
+
 ## [8.2.0] 2026-02-12
 
 ### Added

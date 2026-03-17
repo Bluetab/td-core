@@ -39,6 +39,7 @@ defmodule TdCore.Search.ElasticDocument do
         sort: %{type: "keyword", normalizer: "sortable"}
       }
       @exact %{exact: %{type: "text", analyzer: "exact_analyzer"}}
+      @ngram %{ngram: %{type: "text", analyzer: "ngram_analyzer"}}
       @default_index_type "suggestions"
 
       def get_dynamic_mappings(scope, opts \\ []),
