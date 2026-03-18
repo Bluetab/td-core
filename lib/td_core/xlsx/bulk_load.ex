@@ -35,8 +35,7 @@ defmodule TdCore.XLSX.BulkLoad do
     discarded_headers = translate.(discarded_headers)
 
     headers_ctx =
-      ctx
-      |> Map.merge(%{
+      Map.merge(ctx, %{
         required_headers: required_headers,
         headers: headers,
         discarded_headers: discarded_headers
@@ -54,11 +53,11 @@ defmodule TdCore.XLSX.BulkLoad do
       |> then(&Map.put(ctx, :templates, &1))
       |> Map.merge(extra_context)
 
-    {inserted_ids, updated_ids, error_count, unchanged_count} =
-      params
-      |> Enum.reduce(
-        {[], [], 0, 0},
-        fn item, {ids, updated_ids, errors, unchanged_count} ->
+    {inserted_ids, updated_ids, extra_ids, error_count, unchanged_count} =
+      Enum.reduce(
+        params,
+        {[], [], [], 0, 0},
+        fn item, {ids, updated_ids, extra_ids, errors, unchanged_count} ->
           case BulkLoadProtocol.bulk_load_item(ctx.impl_for, item, ctx) do
             {:error, {type, details}} ->
               UploadJobs.create_error(ctx.job_id, %{
@@ -68,7 +67,7 @@ defmodule TdCore.XLSX.BulkLoad do
                 details: details
               })
 
-              {ids, updated_ids, errors + 1, unchanged_count}
+              {ids, updated_ids, extra_ids, errors + 1, unchanged_count}
 
             {:unchanged, details} ->
               UploadJobs.create_info(ctx.job_id, %{
@@ -78,7 +77,7 @@ defmodule TdCore.XLSX.BulkLoad do
                 details: details
               })
 
-              {ids, updated_ids, errors, unchanged_count + 1}
+              {ids, updated_ids, extra_ids, errors, unchanged_count + 1}
 
             {:created, {id, details}} ->
               UploadJobs.create_info(ctx.job_id, %{
@@ -88,7 +87,17 @@ defmodule TdCore.XLSX.BulkLoad do
                 details: details
               })
 
-              {[id | ids], updated_ids, errors, unchanged_count}
+              {[id | ids], updated_ids, extra_ids, errors, unchanged_count}
+
+            {:updated, {[id | rest], details}} ->
+              UploadJobs.create_info(ctx.job_id, %{
+                type: "updated",
+                sheet: item["_sheet"],
+                row_number: item["_row_number"],
+                details: details
+              })
+
+              {ids, [id | updated_ids], rest ++ extra_ids, errors, unchanged_count}
 
             {:updated, {id, details}} ->
               UploadJobs.create_info(ctx.job_id, %{
@@ -98,12 +107,12 @@ defmodule TdCore.XLSX.BulkLoad do
                 details: details
               })
 
-              {ids, [id | updated_ids], errors, unchanged_count}
+              {ids, [id | updated_ids], extra_ids, errors, unchanged_count}
           end
         end
       )
 
-    all_ids = inserted_ids ++ updated_ids
+    all_ids = inserted_ids ++ updated_ids ++ extra_ids
 
     if all_ids != [] do
       BulkLoadProtocol.on_complete(ctx.impl_for, all_ids)

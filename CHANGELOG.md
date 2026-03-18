@@ -6,6 +6,10 @@
 
 - [TD-7241] Add Markdown to translatable fields
 
+## [8.3.2] 2026-03-17
+
+- [TD-7916] refactor: streamline context merging and enhance item processing in bulk load
+
 ## [8.3.1] 2026-03-12
 
 ### Changed
