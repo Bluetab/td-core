@@ -19,7 +19,7 @@ defmodule TdCore.Search.ElasticDocument do
   @disabled_field_types ~w(url copy image table)
   @entity_types ~w(domain hierarchy system user)
   @date_types ~w(date datetime)
-  @translatable_widgets ~w(enriched_text string textarea)
+  @translatable_widgets ~w(enriched_text markdown string textarea)
   @excluded_search_field_types @disabled_field_types ++ @entity_types ++ @date_types
   @default_index_type "suggestions"
 
