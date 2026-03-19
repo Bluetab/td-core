@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-6489] Update td-cluster to add agent layer callers
+
 ## [8.3.2] 2026-03-17
 
 - [TD-7916] refactor: streamline context merging and enhance item processing in bulk load
