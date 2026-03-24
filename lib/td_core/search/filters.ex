@@ -3,7 +3,6 @@ defmodule TdCore.Search.Filters do
   Support for building filtering search queries
   """
 
-  alias TdCache.TaxonomyCache
   alias TdCore.Search.Query
 
   def build_filters(filters, aggregations, acc) do
@@ -22,11 +21,6 @@ defmodule TdCore.Search.Filters do
     Map.update(acc, key, value, fn existing ->
       [value | List.wrap(existing)]
     end)
-  end
-
-  defp build_filter({"taxonomy" = key, values}, aggs) do
-    values = TaxonomyCache.reachable_domain_ids(values)
-    build_filter(key, values, aggs)
   end
 
   defp build_filter({"should", values}, aggs) do
