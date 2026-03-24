@@ -108,5 +108,17 @@ defmodule TdCore.Search.FiltersTest do
                }
              }
     end
+
+    test "keeps taxonomy ids as-is without descendant expansion" do
+      aggs = %{"taxonomy" => %{terms: %{field: "domain_ids"}}}
+
+      assert Filters.build_filters(%{"taxonomy" => [113]}, aggs, %{}) == %{
+               filter: %{term: %{"domain_ids" => 113}}
+             }
+
+      assert Filters.build_filters(%{"taxonomy" => [113, 116]}, aggs, %{}) == %{
+               filter: %{terms: %{"domain_ids" => [113, 116]}}
+             }
+    end
   end
 end
