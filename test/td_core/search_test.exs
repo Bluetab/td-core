@@ -181,4 +181,23 @@ defmodule TdCore.SearchTest do
       assert Search.search_after(@body_search_after) == {:ok, %{results: [], total: 123}}
     end
   end
+
+  describe "Search.expand_taxonomy_descendants/1" do
+    test "expands taxonomy filter ids to include descendant domain ids" do
+      %{id: parent_id} = CacheHelpers.insert_domain()
+      %{id: child_id} = CacheHelpers.insert_domain(parent_id: parent_id)
+
+      params = %{"filters" => %{"taxonomy" => [parent_id]}}
+
+      assert %{"filters" => %{"taxonomy" => expanded}} =
+               Search.expand_taxonomy_descendants(params)
+
+      assert Enum.sort(expanded) == Enum.sort([parent_id, child_id])
+    end
+
+    test "returns params unchanged when taxonomy filter is absent" do
+      params = %{"filters" => %{"other" => [1]}}
+      assert Search.expand_taxonomy_descendants(params) == params
+    end
+  end
 end

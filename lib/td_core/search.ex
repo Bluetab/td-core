@@ -215,4 +215,21 @@ defmodule TdCore.Search do
 
   defp get_total(value) when is_integer(value), do: value
   defp get_total(%{"relation" => "eq", "value" => value}) when is_integer(value), do: value
+
+  @doc """
+  Expands `filters.taxonomy` domain ids to include every descendant id from the taxonomy cache.
+
+  Used for bulk operations where the search backend matches only explicit ids (no implicit
+  descendant expansion in `TdCore.Search.Filters`).
+  """
+  def expand_taxonomy_descendants(%{"filters" => %{"taxonomy" => [_ | _] = values}} = params) do
+    expanded =
+      values
+      |> Enum.flat_map(&TaxonomyCache.reachable_domain_ids/1)
+      |> Enum.uniq()
+
+    put_in(params, ["filters", "taxonomy"], expanded)
+  end
+
+  def expand_taxonomy_descendants(%{} = params), do: params
 end
