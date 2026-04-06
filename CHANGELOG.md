@@ -1,12 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [8.4.1] 2026-04-06
 
 ### Added
 
 - [TD-7241] Add Markdown to translatable fields
 
 ## [8.4.0] 2026-04-06
+
+### Changed
 
 - [TD-7949] Update td-df-lib
 
@@ -17,6 +19,8 @@
 - [TD-6489] Update td-cluster to add agent layer callers
 
 ## [8.3.2] 2026-03-17
+
+### Changed
 
 - [TD-7916] refactor: streamline context merging and enhance item processing in bulk load
 
