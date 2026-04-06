@@ -6,6 +6,10 @@
 
 - [TD-7241] Add Markdown to translatable fields
 
+## [8.4.0] 2026-04-06
+
+- [TD-7949] Update td-df-lib
+
 ## [8.3.3] 2026-03-23
 
 ### Added
