@@ -19,8 +19,6 @@ defmodule TdCore.XLSX.UploadWorker do
           "claims" => claims
         }
       }) do
-    ### REVIEW TD-7949: Por qué tiene una caracteristica del implementations tan específica????
-    ## Se tendrá que modificar para que sea mas generico incluido el tema del scope
     impl_for =
       :td_core
       |> Application.get_env(:bulk_load_implementations)
