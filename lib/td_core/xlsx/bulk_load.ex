@@ -41,15 +41,14 @@ defmodule TdCore.XLSX.BulkLoad do
         discarded_headers: discarded_headers
       })
 
-    {valid_sheets, invalid_sheet_count} =
-      validate_sheets_headers(raw_sheets, headers_ctx)
+    {valid_sheets, invalid_sheet_count} = validate_sheets_headers(raw_sheets, headers_ctx)
 
-    params =
-      parse_sheets(valid_sheets, headers_ctx)
+    params = parse_sheets(valid_sheets, headers_ctx)
 
     ctx =
       valid_sheets
       |> Enum.map(&elem(&1, 0))
+      |> then(&BulkLoadProtocol.sheets_to_templates(ctx.impl_for, &1))
       |> parse_templates(ctx.lang)
       |> then(&Map.put(ctx, :templates, &1))
       |> Map.merge(extra_context)
@@ -112,7 +111,6 @@ defmodule TdCore.XLSX.BulkLoad do
           end
         end
       )
-      |> then(&BulkLoadProtocol.sheets_to_templates(ctx.impl_for, &1))
 
     all_ids = inserted_ids ++ updated_ids ++ extra_ids
 
