@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.5.0] 2026-04-27
+
+### Changed
+
+- [TD-8082] Update td-df-lib
+
 ## [8.4.2] 2026-04-06
 
 ### Changed
