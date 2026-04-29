@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.5.1] 2026-04-29
+
+### Changed
+
+- [TD-8054] Remove enriched_text support, update td-df-lib
+
 ## [8.5.0] 2026-04-27
 
 ### Changed
