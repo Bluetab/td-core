@@ -19,8 +19,10 @@ defmodule TdCore.Search.ElasticDocumentTest do
       assert %{
                "field-text" => %{},
                "multi-group" => %{},
+               "multi-role-group" => %{},
                "multi-user" => %{},
                "single-group" => %{},
+               "single-role-group" => %{},
                "single-user" => %{},
                "table" => %{}
              } = ElasticDocument.get_dynamic_mappings("ts")
@@ -40,6 +42,13 @@ defmodule TdCore.Search.ElasticDocumentTest do
                "single-group" => %{},
                "single-user" => %{}
              } = ElasticDocument.get_dynamic_mappings("ts", type: ["user", "user_group"])
+    end
+
+    test "returns group field type" do
+      assert %{
+               "multi-role-group" => %{},
+               "single-role-group" => %{}
+             } = ElasticDocument.get_dynamic_mappings("ts", type: "group")
     end
 
     test "returns dynamic table mappings" do
@@ -96,6 +105,24 @@ defmodule TdCore.Search.ElasticDocumentTest do
     test "adds locales to fields for non default languages" do
       assert ["name", "description", "name_es", "description_es"] ==
                ElasticDocument.add_locales([:name, :description])
+    end
+  end
+
+  describe "dynamic fields" do
+    setup do
+      template = TestCacheHelpers.insert_template()
+      %{template: template}
+    end
+
+    test "adds aggregations for group and user_group fields" do
+      assert %{
+               "single-role-group" => %{
+                 terms: %{field: "note.single-role-group.raw"}
+               },
+               "single-group" => %{
+                 terms: %{field: "note.single-group.raw"}
+               }
+             } = ElasticDocument.merge_dynamic_aggregations(%{}, "ts", "note")
     end
   end
 

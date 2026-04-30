@@ -71,6 +71,28 @@ defmodule TestCacheHelpers do
             "widget" => "dropdown"
           },
           %{
+            "cardinality" => "?",
+            "default" => %{"origin" => "default", "value" => ""},
+            "group" => "",
+            "label" => "single-role-group",
+            "name" => "single-role-group",
+            "subscribable" => false,
+            "type" => "group",
+            "values" => %{"role_groups" => "Rol User"},
+            "widget" => "dropdown"
+          },
+          %{
+            "cardinality" => "*",
+            "default" => %{"origin" => "default", "value" => ""},
+            "group" => "",
+            "label" => "multi-role-group",
+            "name" => "multi-role-group",
+            "subscribable" => false,
+            "type" => "group",
+            "values" => %{"role_groups" => "Rol User"},
+            "widget" => "dropdown"
+          },
+          %{
             "cardinality" => "*",
             "default" => %{"origin" => "default", "value" => ""},
             "group" => "",
