@@ -4,7 +4,7 @@ defmodule TdCore.MixProject do
   def project do
     [
       app: :td_core,
-      version: "8.4.2",
+      version: "8.5.1",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
