@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8168] Add code quality control
+
 ## [8.5.2] 2026-05-07
 
 ### Changed
