@@ -8,6 +8,7 @@ defmodule TdCore.MixProject do
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -35,10 +36,15 @@ defmodule TdCore.MixProject do
       {:xlsx_reader, "~> 0.8.7"},
       {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git"},
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
-      {:git_hooks, "~> 0.7", only: :dev, runtime: false},
       {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "8.3.0"},
       {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "8.3.0"},
       {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "8.5.1"}
+    ]
+  end
+
+  defp aliases do
+    [
+      quality: ["format --check-formatted", "credo --strict"]
     ]
   end
 end

@@ -1,15 +1,5 @@
 import Config
 
-config :git_hooks,
-  auto_install: true,
-  hooks: [
-    pre_commit: [
-      tasks: [
-        {:cmd, "mix format --check-formatted"}
-      ]
-    ]
-  ]
-
 config :td_core, TdCore.Search.Cluster,
   api: ElasticsearchMock,
   url: "http://none",
