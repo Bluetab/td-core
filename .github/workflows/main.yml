@@ -1,8 +1,8 @@
-name: quality
+name: test
 on: push
 
 jobs:
-  quality:
+  test:
     runs-on: ubuntu-20.04
 
     steps:
@@ -13,4 +13,4 @@ jobs:
           elixir-version: "1.18.1"
       - run: mix deps.get
       - run: mix quality
-
+      - run: mix test
