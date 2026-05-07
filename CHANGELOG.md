@@ -6,6 +6,12 @@
 
 - [TD-8083] Add user group management features
 
+## [8.5.2] 2026-05-07
+
+### Changed
+
+- [TD-8054] Uupdate td-df-lib
+
 ## [8.5.1] 2026-04-29
 
 ### Changed
