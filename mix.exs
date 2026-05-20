@@ -33,7 +33,7 @@ defmodule TdCore.MixProject do
       {:mox, "~> 1.2", only: :test},
       {:elixlsx, "~> 0.6"},
       {:xlsx_reader, "~> 0.8.11"},
-      {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git"},
+      {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git", tag: "8.6.0"},
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
       {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "8.3.0"},
       {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "8.6.1"},
