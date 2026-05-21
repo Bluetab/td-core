@@ -4,7 +4,7 @@ defmodule TdCore.MixProject do
   def project do
     [
       app: :td_core,
-      version: "8.6.2",
+      version: "8.6.3",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -27,7 +27,7 @@ defmodule TdCore.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:plug, "~> 1.16.1"},
+      {:plug, "~> 1.16.3"},
       {:jason, "~> 1.4.4"},
       {:guardian, "~> 2.3.2"},
       {:mox, "~> 1.2", only: :test},
