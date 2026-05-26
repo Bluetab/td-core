@@ -54,63 +54,7 @@ defmodule TdCore.XLSX.BulkLoad do
       |> Map.merge(extra_context)
 
     {inserted_ids, updated_ids, extra_ids, error_count, unchanged_count} =
-      Enum.reduce(
-        params,
-        {[], [], [], 0, 0},
-        fn item, {ids, updated_ids, extra_ids, errors, unchanged_count} ->
-          case BulkLoadProtocol.bulk_load_item(ctx.impl_for, item, ctx) do
-            {:error, {type, details}} ->
-              UploadJobs.create_error(ctx.job_id, %{
-                type: type,
-                sheet: item["_sheet"],
-                row_number: item["_row_number"],
-                details: details
-              })
-
-              {ids, updated_ids, extra_ids, errors + 1, unchanged_count}
-
-            {:unchanged, details} ->
-              UploadJobs.create_info(ctx.job_id, %{
-                type: "unchanged",
-                sheet: item["_sheet"],
-                row_number: item["_row_number"],
-                details: details
-              })
-
-              {ids, updated_ids, extra_ids, errors, unchanged_count + 1}
-
-            {:created, {id, details}} ->
-              UploadJobs.create_info(ctx.job_id, %{
-                type: "created",
-                sheet: item["_sheet"],
-                row_number: item["_row_number"],
-                details: details
-              })
-
-              {[id | ids], updated_ids, extra_ids, errors, unchanged_count}
-
-            {:updated, {[id | rest], details}} ->
-              UploadJobs.create_info(ctx.job_id, %{
-                type: "updated",
-                sheet: item["_sheet"],
-                row_number: item["_row_number"],
-                details: details
-              })
-
-              {ids, [id | updated_ids], rest ++ extra_ids, errors, unchanged_count}
-
-            {:updated, {id, details}} ->
-              UploadJobs.create_info(ctx.job_id, %{
-                type: "updated",
-                sheet: item["_sheet"],
-                row_number: item["_row_number"],
-                details: details
-              })
-
-              {ids, [id | updated_ids], extra_ids, errors, unchanged_count}
-          end
-        end
-      )
+      Enum.reduce(params, {[], [], [], 0, 0}, &process_item(&1, &2, ctx))
 
     all_ids = inserted_ids ++ updated_ids ++ extra_ids
 
@@ -126,6 +70,85 @@ defmodule TdCore.XLSX.BulkLoad do
        unchanged_count: unchanged_count,
        invalid_sheet_count: invalid_sheet_count
      }}
+  end
+
+  # Processes a single row, tracking the running tally of ids and counts. A row
+  # never aborts the whole load: unknown return shapes and raised exceptions are
+  # both logged and recorded as error events.
+  defp process_item(item, {ids, updated_ids, extra_ids, errors, unchanged_count}, ctx) do
+    case BulkLoadProtocol.bulk_load_item(ctx.impl_for, item, ctx) do
+      {:error, {type, details}} ->
+        UploadJobs.create_error(ctx.job_id, %{
+          type: type,
+          sheet: item["_sheet"],
+          row_number: item["_row_number"],
+          details: details
+        })
+
+        {ids, updated_ids, extra_ids, errors + 1, unchanged_count}
+
+      {:unchanged, details} ->
+        UploadJobs.create_info(ctx.job_id, %{
+          type: "unchanged",
+          sheet: item["_sheet"],
+          row_number: item["_row_number"],
+          details: details
+        })
+
+        {ids, updated_ids, extra_ids, errors, unchanged_count + 1}
+
+      {:created, {id, details}} ->
+        UploadJobs.create_info(ctx.job_id, %{
+          type: "created",
+          sheet: item["_sheet"],
+          row_number: item["_row_number"],
+          details: details
+        })
+
+        {[id | ids], updated_ids, extra_ids, errors, unchanged_count}
+
+      {:updated, {[id | rest], details}} ->
+        UploadJobs.create_info(ctx.job_id, %{
+          type: "updated",
+          sheet: item["_sheet"],
+          row_number: item["_row_number"],
+          details: details
+        })
+
+        {ids, [id | updated_ids], rest ++ extra_ids, errors, unchanged_count}
+
+      {:updated, {id, details}} ->
+        UploadJobs.create_info(ctx.job_id, %{
+          type: "updated",
+          sheet: item["_sheet"],
+          row_number: item["_row_number"],
+          details: details
+        })
+
+        {ids, [id | updated_ids], extra_ids, errors, unchanged_count}
+
+      unexpected ->
+        Logger.error("Unexpected bulk_load_item result: #{inspect(unexpected)}")
+        create_unexpected_error(ctx, item, inspect(unexpected))
+        {ids, updated_ids, extra_ids, errors + 1, unchanged_count}
+    end
+  rescue
+    exception ->
+      Logger.error(
+        "bulk_load_item raised: " <> Exception.format(:error, exception, __STACKTRACE__)
+      )
+
+      create_unexpected_error(ctx, item, Exception.message(exception))
+      {ids, updated_ids, extra_ids, errors + 1, unchanged_count}
+  end
+
+  defp create_unexpected_error(ctx, item, message) when is_binary(message) do
+    UploadJobs.create_error(ctx.job_id, %{
+      type: "unexpected_error",
+      sheet: item["_sheet"],
+      row_number: item["_row_number"],
+      details: %{message: message}
+    })
   end
 
   defp validate_sheets_headers(sheets, ctx) do
