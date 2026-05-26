@@ -72,9 +72,6 @@ defmodule TdCore.XLSX.BulkLoad do
      }}
   end
 
-  # Processes a single row, tracking the running tally of ids and counts. A row
-  # never aborts the whole load: unknown return shapes and raised exceptions are
-  # both logged and recorded as error events.
   defp process_item(item, {ids, updated_ids, extra_ids, errors, unchanged_count}, ctx) do
     case BulkLoadProtocol.bulk_load_item(ctx.impl_for, item, ctx) do
       {:error, {type, details}} ->
