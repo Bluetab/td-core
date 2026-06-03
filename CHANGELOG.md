@@ -1,10 +1,10 @@
 # Changelog
 
-## [8.6.4] 2026-06-01
+## [8.6.4] 2026-06-03
 
 ### Fixed
 
--[TD-8083] Update td-cache lib 
+-[TD-8083] Update libs
 
 
 ## [8.6.3] 2026-05-21
