@@ -1,8 +1,14 @@
 # Changelog
 
+## [Unrelased]
+
+### Changed
+
+- [TD-7655] Update libs
+
 ## [8.6.4] 2026-06-05
 
-### Fixed
+### Changed
 
 -[TD-8083] Update libs
 
