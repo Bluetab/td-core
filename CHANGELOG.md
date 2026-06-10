@@ -1,6 +1,12 @@
 # Changelog
 
-## [8.7.0]
+## [8.7.1] 2026-06-10
+
+### Added
+
+- [TD-8168] Add code quality control
+
+## [8.7.0] 2026-06-10
 
 ### Fixed
 
