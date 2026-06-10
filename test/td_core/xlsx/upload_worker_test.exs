@@ -1,6 +1,8 @@
 defmodule TdCore.XLSX.UploadWorkerTest do
   use ExUnit.Case
 
+  import ExUnit.CaptureLog
+
   alias TdCluster.TestHelpers.TdAuditMock.UploadJobs
   alias TdCore.Auth.Claims
   alias TdCore.TestSupport.CacheHelpers
@@ -32,6 +34,10 @@ defmodule TdCore.XLSX.UploadWorkerTest do
       lang = "es"
       auto_publish = "false"
 
+      Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _, _, _ ->
+        {:created, {"id", "details"}}
+      end)
+
       UploadJobs.create_started(&Mox.expect/4, job_id)
 
       Enum.each(2..4, fn row_number ->
@@ -62,6 +68,98 @@ defmodule TdCore.XLSX.UploadWorkerTest do
                    "claims" => claims
                  }
                })
+    end
+
+    test "logs unexpected bulk_load_item results as errors without aborting", %{claims: claims} do
+      path = "test/fixtures/xlsx/upload_tiny.xlsx"
+      job_id = 890
+      lang = "es"
+      auto_publish = "false"
+
+      Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _, _, _ -> :error end)
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+
+      Enum.each(2..4, fn row_number ->
+        UploadJobs.create_error(&Mox.expect/4, job_id, %{
+          type: "unexpected_error",
+          details: %{message: ":error"},
+          sheet: "type_1",
+          row_number: row_number
+        })
+      end)
+
+      UploadJobs.create_completed(&Mox.expect/4, job_id, %{
+        insert_count: 0,
+        update_count: 0,
+        error_count: 3,
+        unchanged_count: 0,
+        invalid_sheet_count: 0
+      })
+
+      log =
+        capture_log(fn ->
+          assert {:ok, nil} =
+                   UploadWorker.run(%{
+                     "path" => path,
+                     "job_id" => job_id,
+                     "scope" => "mock_bulk_load",
+                     "opts" => %{
+                       "lang" => lang,
+                       "auto_publish" => auto_publish,
+                       "claims" => claims
+                     }
+                   })
+        end)
+
+      assert log =~ "Unexpected bulk_load_item result: :error"
+    end
+
+    test "logs raised bulk_load_item exceptions as errors without aborting", %{claims: claims} do
+      path = "test/fixtures/xlsx/upload_tiny.xlsx"
+      job_id = 891
+      lang = "es"
+      auto_publish = "false"
+
+      Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _, _, _ ->
+        raise "boom"
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+
+      Enum.each(2..4, fn row_number ->
+        UploadJobs.create_error(&Mox.expect/4, job_id, %{
+          type: "unexpected_error",
+          details: %{message: "boom"},
+          sheet: "type_1",
+          row_number: row_number
+        })
+      end)
+
+      UploadJobs.create_completed(&Mox.expect/4, job_id, %{
+        insert_count: 0,
+        update_count: 0,
+        error_count: 3,
+        unchanged_count: 0,
+        invalid_sheet_count: 0
+      })
+
+      log =
+        capture_log(fn ->
+          assert {:ok, nil} =
+                   UploadWorker.run(%{
+                     "path" => path,
+                     "job_id" => job_id,
+                     "scope" => "mock_bulk_load",
+                     "opts" => %{
+                       "lang" => lang,
+                       "auto_publish" => auto_publish,
+                       "claims" => claims
+                     }
+                   })
+        end)
+
+      assert log =~ "bulk_load_item raised:"
     end
 
     test "handles invalid file format", %{claims: claims} do

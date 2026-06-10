@@ -6,11 +6,47 @@
 
 - [TD-8168] Add code quality control
 
+## [8.7.0]
+
+### Fixed
+
+- [TD-8203] Handle unexpected `bulk_load_item` results without aborting XLSX upload
+
+## [8.6.4] 2026-06-05
+
+### Fixed
+
+-[TD-8083] Update libs
+
+## [8.6.3] 2026-05-21
+
+### Fixed
+
+-[TD-8162] Vulnerabilities
+
+## [8.6.2] 2026-05-20
+
+### Fixed
+
+-[TD-8162] Vulnerabilities
+
+## [8.6.1] 2026-05-20
+
+### Changed
+
+- [TD-8083] Update td-df-lib
+
+## [8.6.0] 2026-05-12
+
+### Added
+
+- [TD-8083] User group management features
+
 ## [8.5.2] 2026-05-07
 
 ### Changed
 
-- [TD-8054] Uupdate td-df-lib
+- [TD-8054] Update td-df-lib
 
 ## [8.5.1] 2026-04-29
 
