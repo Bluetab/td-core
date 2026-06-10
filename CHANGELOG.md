@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.7.0]
+
+### Fixed
+
+- [TD-8203] Handle unexpected `bulk_load_item` results without aborting XLSX upload
+
 ## [8.6.4] 2026-06-05
 
 ### Fixed
