@@ -13,7 +13,7 @@ defmodule MockBulkLoadImpl do
         discarded_headers: ["link_to_structure"]
       ]
 
-    def bulk_load_item(_, _, _), do: {:created, {"id", "details"}}
+    def bulk_load_item(impl, item, ctx), do: MockBulkLoadItem.bulk_load_item(impl, item, ctx)
     def on_complete(_, _), do: nil
     def sheets_to_templates(_, _), do: %{}
   end
