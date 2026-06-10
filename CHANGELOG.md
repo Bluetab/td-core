@@ -20,7 +20,7 @@
 
 ## [8.6.4] 2026-06-05
 
-### Changed
+### Fixed
 
 -[TD-8083] Update libs
 
