@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-8062] Update libs
+
 ## [8.7.2] 2026-06-11
 
 ### Changed
