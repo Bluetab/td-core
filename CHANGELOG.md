@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.8.0] 2026-06-29
+
+### Changed
+
+-[TD-8299] Update libs
+
 ## [8.7.2] 2026-06-11
 
 ### Changed
