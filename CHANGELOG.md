@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [8.8.0] 2026-06-29
 
-### Fixed
+### Changed
 
 -[TD-8299] Update libs
 
