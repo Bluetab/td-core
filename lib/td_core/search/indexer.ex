@@ -10,6 +10,7 @@ defmodule TdCore.Search.Indexer do
   alias Elasticsearch.Index.Bulk
   alias TdCluster.Cluster.TdDd.Tasks
   alias TdCluster.Cluster.TdLm
+  alias TdCore.Search.BulkUploader
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocumentProtocol
 
@@ -33,20 +34,19 @@ defmodule TdCore.Search.Indexer do
   @action "index"
   def reindex(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
-
     store = store_from_alias(alias_name)
+    bulk_page_size = Cluster.setting(index, :bulk_page_size)
+    concurrency = reindex_concurrency()
 
-    store.transaction(fn ->
-      alias_name
-      |> schema_from_alias()
-      |> store.stream(ids)
-      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
-      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
-      |> Stream.map(&Enum.join(&1, ""))
-      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
-      |> Stream.map(&log_bulk_post(alias_name, &1, @action))
-      |> Stream.run()
-    end)
+    alias_name
+    |> schema_from_alias()
+    |> store.stream(ids)
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+    |> Stream.chunk_every(bulk_page_size)
+    |> Stream.map(&Enum.join(&1, ""))
+    |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
+    |> Stream.map(&log_bulk_post(alias_name, &1, @action))
+    |> Stream.run()
   end
 
   def reindex(index, id), do: reindex(index, [id])
@@ -127,20 +127,19 @@ defmodule TdCore.Search.Indexer do
   @update_action "update"
   def put_embeddings(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
-
     store = store_from_alias(alias_name)
+    bulk_page_size = Cluster.setting(index, :bulk_page_size)
+    concurrency = reindex_concurrency()
 
-    store.transaction(fn ->
-      alias_name
-      |> schema_from_alias()
-      |> store.stream({:embeddings, ids})
-      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
-      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
-      |> Stream.map(&Enum.join(&1, ""))
-      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
-      |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
-      |> Stream.run()
-    end)
+    alias_name
+    |> schema_from_alias()
+    |> store.stream({:embeddings, ids})
+    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
+    |> Stream.chunk_every(bulk_page_size)
+    |> Stream.map(&Enum.join(&1, ""))
+    |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
+    |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
+    |> Stream.run()
   end
 
   defp store_from_alias(alias_name) do
@@ -252,7 +251,8 @@ defmodule TdCore.Search.Indexer do
 
     with {:index_from_settings, :ok} <-
            {:index_from_settings, Index.create_from_settings(config, name, %{settings: settings})},
-         {:bulk_upload, :ok} <- {:bulk_upload, Bulk.upload(config, name, index_config)},
+         {:bulk_upload, :ok} <-
+           {:bulk_upload, BulkUploader.upload(config, name, index_config, [])},
          {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
          {:index_clean_starting, :ok} <-
            {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
@@ -488,5 +488,10 @@ defmodule TdCore.Search.Indexer do
 
   defp cluster_config do
     Application.get_env(:td_core, TdCore.Search.Cluster)
+  end
+
+  defp reindex_concurrency do
+    cluster_config()
+    |> Keyword.get(:reindex_concurrency, System.schedulers_online())
   end
 end
