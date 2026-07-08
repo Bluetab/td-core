@@ -6,6 +6,12 @@
 
 - [TD-8062] Update libs
 
+## [8.8.1] 2026-06-30
+
+### Changed
+
+-[TD-8299] Update mix.lock
+
 ## [8.8.0] 2026-06-29
 
 ### Changed
