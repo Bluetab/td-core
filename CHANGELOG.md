@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.8.3] 2026-07-09
+
+### Added
+
+- [TD-7965] Update libs
+
 ## [8.8.2] 2026-07-08
 
 ### Changed
