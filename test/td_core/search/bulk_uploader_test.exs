@@ -1,6 +1,7 @@
 defmodule TdCore.Search.BulkUploaderTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
   import Mox
 
   alias TdCore.Search.BulkUploader
@@ -120,6 +121,28 @@ defmodule TdCore.Search.BulkUploaderTest do
       assert length(results) == 2
       assert Enum.any?(results, &match?({:ok, %{"errors" => true}}, &1))
       assert Enum.any?(results, &match?({:ok, %{"errors" => false}}, &1))
+    end
+  end
+
+  describe "record_bulk_response/4" do
+    test "logs took on successful bulk response" do
+      response = {:ok, %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
+
+      log =
+        capture_log(fn ->
+          assert [] == BulkUploader.record_bulk_response("structures-1", response, [], "index")
+        end)
+
+      assert log =~ "structures-1: bulk indexed 2 documents (took=123)"
+    end
+
+    test "does not log bulk wait interval ok" do
+      log =
+        capture_log(fn ->
+          assert [] == BulkUploader.record_bulk_response("structures-1", :ok, [], "index")
+        end)
+
+      assert log == ""
     end
   end
 end

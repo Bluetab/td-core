@@ -241,6 +241,9 @@ defmodule TdCore.Search.Indexer do
 
   @bulk_load_refresh_interval "-1"
   @bulk_load_replicas 0
+  # Post-bulk finalize must not inherit ES_RECV_TIMEOUT (~120s): that wait
+  # was adding ~2 min to hot_swap wall after the last bulk page.
+  @hot_swap_refresh_recv_timeout 5_000
 
   @doc false
   def bulk_load_index_settings(settings) when is_map(settings) do
@@ -289,7 +292,7 @@ defmodule TdCore.Search.Indexer do
          {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
          {:index_clean_starting, :ok} <-
            {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
-         {:index_refresh, :ok} <- {:index_refresh, refresh(config, name)} do
+         {:index_refresh, :ok} <- {:index_refresh, finalize_hot_swap_index(Cluster, name)} do
       Logger.info(
         "Hot swap successful, finished reindexing, pointing alias #{alias_name} -> #{name}"
       )
@@ -440,17 +443,44 @@ defmodule TdCore.Search.Indexer do
     "#{Enum.count(exceptions)} errors"
   end
 
+  @doc false
+  def finalize_hot_swap_index(cluster, name) do
+    refresh(cluster, name,
+      skip_forcemerge: true,
+      recv_timeout: @hot_swap_refresh_recv_timeout
+    )
+  end
+
   def refresh(cluster, name, opts \\ []) do
+    http_opts = refresh_http_opts(opts)
+    skip_forcemerge? = Keyword.get(opts, :skip_forcemerge, false)
+
+    with {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}, http_opts),
+         :ok <- maybe_forcemerge(cluster, name, opts, http_opts, skip_forcemerge?),
+         do: :ok
+  end
+
+  defp maybe_forcemerge(_cluster, _name, _opts, _http_opts, true), do: :ok
+
+  defp maybe_forcemerge(cluster, name, opts, http_opts, false) do
     forcemerge_options = forcemerge_config(opts)
 
-    with {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
-         {:ok, _} <-
-           Elasticsearch.post(
-             cluster,
-             "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
-             %{}
-           ),
-         do: :ok
+    case Elasticsearch.post(
+           cluster,
+           "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
+           %{},
+           http_opts
+         ) do
+      {:ok, _} -> :ok
+      error -> error
+    end
+  end
+
+  defp refresh_http_opts(opts) do
+    case Keyword.get(opts, :recv_timeout) do
+      nil -> []
+      timeout -> [recv_timeout: timeout]
+    end
   end
 
   defp message(%Elasticsearch.Exception{} = e) do

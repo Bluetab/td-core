@@ -494,4 +494,57 @@ defmodule TdCore.Search.IndexerTest do
                })
     end
   end
+
+  describe "finalize_hot_swap_index/2" do
+    test "refreshes without forcemerge using dedicated recv_timeout" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/structures-1/_refresh", _, opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:ok, %{"_shards" => %{"successful" => 1}}}
+      end)
+
+      assert :ok = Indexer.finalize_hot_swap_index(Cluster, "structures-1")
+    end
+
+    test "returns error when refresh times out" do
+      error = %HTTPoison.Error{reason: :timeout, id: nil}
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/structures-1/_refresh", _, opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:error, error}
+      end)
+
+      assert {:error, ^error} = Indexer.finalize_hot_swap_index(Cluster, "structures-1")
+    end
+  end
+
+  describe "refresh skip_forcemerge" do
+    test "skips forcemerge when skip_forcemerge is true" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/concepts/_refresh", _, [] ->
+        {:ok, :success}
+      end)
+
+      assert :ok == Indexer.refresh(Cluster, "concepts", skip_forcemerge: true)
+    end
+
+    test "passes recv_timeout to refresh and forcemerge requests" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/concepts/_refresh", _, opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:ok, :success}
+      end)
+      |> expect(:request, fn _,
+                             :post,
+                             "/concepts/_forcemerge?max_num_segments=5",
+                             _,
+                             opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:ok, :success}
+      end)
+
+      assert :ok == Indexer.refresh(Cluster, "concepts", recv_timeout: 5_000)
+    end
+  end
 end

@@ -7,6 +7,7 @@ defmodule TdCore.Search.BulkUploader do
 
   alias Elasticsearch.Cluster.Config
   alias Elasticsearch.Index.Bulk
+  alias TdCore.Search.Indexer
 
   @doc """
   Uploads all data from the configured store to `index_name`, posting bulk
@@ -31,7 +32,9 @@ defmodule TdCore.Search.BulkUploader do
       |> Stream.intersperse(bulk_wait_interval)
       |> Stream.map(&put_bulk_page(config, index_name, &1))
       |> post_bulk_responses(concurrency)
-      |> Enum.reduce(errors, &collect_errors(&1, &2, action))
+      |> Enum.reduce(errors, fn response, acc ->
+        record_bulk_response(index_name, response, acc, action)
+      end)
 
     upload(config, index_name, %{index_config | sources: tail}, errors)
   end
@@ -78,6 +81,22 @@ defmodule TdCore.Search.BulkUploader do
   defp put_bulk_page(config, index_name, items) when is_list(items) do
     Elasticsearch.put(config, "/#{index_name}/_bulk", Enum.join(items))
   end
+
+  @doc false
+  def record_bulk_response(index_name, response, errors, action) do
+    maybe_log_bulk_post(index_name, response, action)
+    collect_errors(response, errors, action)
+  end
+
+  defp maybe_log_bulk_post(index_name, {:ok, _} = response, action) do
+    Indexer.log_bulk_post(index_name, response, action)
+  end
+
+  defp maybe_log_bulk_post(index_name, {:error, _} = response, action) do
+    Indexer.log_bulk_post(index_name, response, action)
+  end
+
+  defp maybe_log_bulk_post(_index_name, _response, _action), do: :ok
 
   defp collect_errors({:ok, %{"errors" => true} = response}, errors, action) do
     new_errors =
