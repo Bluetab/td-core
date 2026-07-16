@@ -239,6 +239,35 @@ defmodule TdCore.Search.Indexer do
     put_template_error
   end
 
+  @bulk_load_refresh_interval "-1"
+  @bulk_load_replicas 0
+
+  @doc false
+  def bulk_load_index_settings(settings) when is_map(settings) do
+    settings
+    |> Map.put("refresh_interval", @bulk_load_refresh_interval)
+    |> Map.put("number_of_replicas", @bulk_load_replicas)
+    |> Map.drop([:refresh_interval, :number_of_replicas])
+  end
+
+  @doc false
+  def production_index_settings(settings) when is_map(settings) do
+    %{
+      "index" => %{
+        "refresh_interval" => index_setting(settings, "refresh_interval", "5s"),
+        "number_of_replicas" => index_setting(settings, "number_of_replicas", 1)
+      }
+    }
+  end
+
+  @doc false
+  def restore_index_settings(cluster, index_name, settings) when is_map(settings) do
+    case Elasticsearch.put(cluster, "/#{index_name}/_settings", production_index_settings(settings)) do
+      {:ok, _} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
   # Modified from Elasticsearch.Index.hot_swap for better logging and
   # error handling
   defp hot_swap(alias_name) do
@@ -247,12 +276,16 @@ defmodule TdCore.Search.Indexer do
     name = Index.build_name(alias_name)
     config = Config.get(Cluster)
     index_config = config[:indexes][alias_name]
-    settings = Map.get(mappings, :settings, index_config.settings)
+    production_settings = Map.get(mappings, :settings, index_config.settings)
+    bulk_load_settings = bulk_load_index_settings(production_settings)
 
     with {:index_from_settings, :ok} <-
-           {:index_from_settings, Index.create_from_settings(config, name, %{settings: settings})},
+           {:index_from_settings,
+            Index.create_from_settings(config, name, %{settings: bulk_load_settings})},
          {:bulk_upload, :ok} <-
            {:bulk_upload, BulkUploader.upload(config, name, index_config, [])},
+         {:restore_settings, :ok} <-
+           {:restore_settings, restore_index_settings(Cluster, name, production_settings)},
          {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
          {:index_clean_starting, :ok} <-
            {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
@@ -488,6 +521,13 @@ defmodule TdCore.Search.Indexer do
 
   defp cluster_config do
     Application.get_env(:td_core, TdCore.Search.Cluster)
+  end
+
+  defp index_setting(settings, key, default) when is_binary(key) do
+    atom_key = String.to_existing_atom(key)
+    Map.get(settings, key) || Map.get(settings, atom_key) || default
+  rescue
+    ArgumentError -> Map.get(settings, key, default)
   end
 
   defp reindex_concurrency do

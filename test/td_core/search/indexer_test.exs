@@ -421,4 +421,77 @@ defmodule TdCore.Search.IndexerTest do
       assert :ok = Indexer.ensure_index_exists(:test_alias)
     end
   end
+
+  describe "bulk_load_index_settings/1" do
+    test "overrides refresh_interval and number_of_replicas for bulk load" do
+      settings = %{
+        "refresh_interval" => "5s",
+        "number_of_replicas" => 1,
+        analysis: %{tokenizer: %{}}
+      }
+
+      assert %{
+               "refresh_interval" => "-1",
+               "number_of_replicas" => 0,
+               analysis: %{tokenizer: %{}}
+             } = Indexer.bulk_load_index_settings(settings)
+    end
+  end
+
+  describe "production_index_settings/1" do
+    test "builds restore body from string keys" do
+      settings = %{"refresh_interval" => "10s", "number_of_replicas" => 2}
+
+      assert %{
+               "index" => %{
+                 "refresh_interval" => "10s",
+                 "number_of_replicas" => 2
+               }
+             } = Indexer.production_index_settings(settings)
+    end
+
+    test "falls back to defaults when keys are missing" do
+      assert %{
+               "index" => %{
+                 "refresh_interval" => "5s",
+                 "number_of_replicas" => 1
+               }
+             } = Indexer.production_index_settings(%{})
+    end
+  end
+
+  describe "restore_index_settings/3" do
+    test "puts production settings to the index" do
+      settings = %{"refresh_interval" => "10s", "number_of_replicas" => 2}
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/structures-1/_settings", body, [] ->
+        assert body == %{
+                 "index" => %{
+                   "refresh_interval" => "10s",
+                   "number_of_replicas" => 2
+                 }
+               }
+
+        {:ok, %{"acknowledged" => true}}
+      end)
+
+      assert :ok = Indexer.restore_index_settings(Cluster, "structures-1", settings)
+    end
+
+    test "returns error when Elasticsearch rejects the update" do
+      error = %HTTPoison.Error{reason: :timeout, id: nil}
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/structures-1/_settings", _, [] ->
+        {:error, error}
+      end)
+
+      assert {:error, ^error} =
+               Indexer.restore_index_settings(Cluster, "structures-1", %{
+                 "refresh_interval" => "5s",
+                 "number_of_replicas" => 1
+               })
+    end
+  end
 end
