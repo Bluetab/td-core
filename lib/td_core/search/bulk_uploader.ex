@@ -30,8 +30,7 @@ defmodule TdCore.Search.BulkUploader do
       |> Stream.map(&Bulk.encode!(config, &1, index_name, action))
       |> Stream.chunk_every(bulk_page_size)
       |> Stream.intersperse(bulk_wait_interval)
-      |> Stream.map(&put_bulk_page(config, index_name, &1))
-      |> post_bulk_responses(concurrency)
+      |> post_bulk_pages(config, index_name, concurrency)
       |> Enum.reduce(errors, fn response, acc ->
         record_bulk_response(index_name, response, acc, action)
       end)
@@ -61,11 +60,18 @@ defmodule TdCore.Search.BulkUploader do
     end)
   end
 
-  defp post_bulk_responses(pages, concurrency) when concurrency <= 1, do: pages
+  defp post_bulk_pages(pages, config, index_name, concurrency) when concurrency <= 1 do
+    Stream.map(pages, &put_bulk_page(config, index_name, &1))
+  end
 
-  defp post_bulk_responses(pages, concurrency) do
+  defp post_bulk_pages(pages, config, index_name, concurrency) do
     pages
-    |> Task.async_stream(& &1, max_concurrency: concurrency, ordered: true, timeout: :infinity)
+    |> Task.async_stream(
+      &put_bulk_page(config, index_name, &1),
+      max_concurrency: concurrency,
+      ordered: true,
+      timeout: :infinity
+    )
     |> Stream.map(fn
       {:ok, response} -> response
       {:exit, reason} -> {:error, reason}

@@ -145,4 +145,101 @@ defmodule TdCore.Search.BulkUploaderTest do
       assert log == ""
     end
   end
+
+  describe "upload/4" do
+    alias TdCore.Search.BulkUploaderUploadDoc
+    alias TdCore.Search.BulkUploaderUploadStore
+
+    @upload_config %{
+      api: ElasticsearchMock,
+      url: "http://none",
+      json_library: Jason
+    }
+
+    setup do
+      previous = Application.get_env(:td_core, TdCore.Search.Cluster, [])
+
+      on_exit(fn ->
+        Application.put_env(:td_core, TdCore.Search.Cluster, previous)
+      end)
+
+      {:ok, previous: previous}
+    end
+
+    test "runs PUT _bulk serially when reindex_concurrency is 1", %{previous: previous} do
+      Application.put_env(
+        :td_core,
+        TdCore.Search.Cluster,
+        Keyword.put(previous, :reindex_concurrency, 1)
+      )
+
+      {:ok, agent} = Agent.start_link(fn -> %{inflight: 0, max: 0} end)
+
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        Agent.update(agent, fn %{inflight: n, max: m} ->
+          %{inflight: n + 1, max: max(m, n + 1)}
+        end)
+
+        Process.sleep(30)
+
+        Agent.update(agent, fn state -> %{state | inflight: state.inflight - 1} end)
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      assert :ok ==
+               BulkUploader.upload(
+                 @upload_config,
+                 "upload-idx",
+                 %{
+                   store: BulkUploaderUploadStore,
+                   sources: [BulkUploaderUploadDoc],
+                   bulk_page_size: 1,
+                   bulk_wait_interval: 0,
+                   bulk_action: "index"
+                 },
+                 []
+               )
+
+      assert Agent.get(agent, & &1.max) == 1
+    end
+
+    test "overlaps concurrent PUT _bulk when reindex_concurrency > 1", %{previous: previous} do
+      Application.put_env(
+        :td_core,
+        TdCore.Search.Cluster,
+        Keyword.put(previous, :reindex_concurrency, 2)
+      )
+
+      {:ok, agent} = Agent.start_link(fn -> %{inflight: 0, max: 0} end)
+
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        Agent.update(agent, fn %{inflight: n, max: m} ->
+          %{inflight: n + 1, max: max(m, n + 1)}
+        end)
+
+        Process.sleep(50)
+
+        Agent.update(agent, fn state -> %{state | inflight: state.inflight - 1} end)
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      assert :ok ==
+               BulkUploader.upload(
+                 @upload_config,
+                 "upload-idx",
+                 %{
+                   store: BulkUploaderUploadStore,
+                   sources: [BulkUploaderUploadDoc],
+                   bulk_page_size: 1,
+                   bulk_wait_interval: 0,
+                   bulk_action: "index"
+                 },
+                 []
+               )
+
+      assert Agent.get(agent, & &1.max) >= 2
+    end
+  end
 end
