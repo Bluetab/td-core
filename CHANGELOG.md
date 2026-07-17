@@ -4,7 +4,7 @@
 
 ### Added
 
-- [TD-7788] `TdCore.Search.BulkUploader` for parallel Elasticsearch bulk
+- [TD-8270] `TdCore.Search.BulkUploader` for parallel Elasticsearch bulk
   uploads during hot-swap and partial reindex.
 
 ### Changed
