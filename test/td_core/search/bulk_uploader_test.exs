@@ -125,7 +125,23 @@ defmodule TdCore.Search.BulkUploaderTest do
   end
 
   describe "record_bulk_response/4" do
-    test "logs took on successful bulk response" do
+    setup do
+      previous = System.get_env("ES_BULK_TOOK_LOG")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ES_BULK_TOOK_LOG", previous)
+        else
+          System.delete_env("ES_BULK_TOOK_LOG")
+        end
+      end)
+
+      :ok
+    end
+
+    test "logs took on successful bulk response when ES_BULK_TOOK_LOG is enabled" do
+      System.put_env("ES_BULK_TOOK_LOG", "1")
+
       response = {:ok, %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
 
       log =
@@ -134,6 +150,19 @@ defmodule TdCore.Search.BulkUploaderTest do
         end)
 
       assert log =~ "structures-1: bulk indexed 2 documents (took=123)"
+    end
+
+    test "does not log took when ES_BULK_TOOK_LOG is unset" do
+      System.delete_env("ES_BULK_TOOK_LOG")
+
+      response = {:ok, %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
+
+      log =
+        capture_log(fn ->
+          assert [] == BulkUploader.record_bulk_response("structures-1", response, [], "index")
+        end)
+
+      refute log =~ "took="
     end
 
     test "does not log bulk wait interval ok" do
@@ -187,19 +216,21 @@ defmodule TdCore.Search.BulkUploaderTest do
         {:ok, %{"errors" => false, "items" => [], "took" => 1}}
       end)
 
-      assert :ok ==
-               BulkUploader.upload(
-                 @upload_config,
-                 "upload-idx",
-                 %{
-                   store: BulkUploaderUploadStore,
-                   sources: [BulkUploaderUploadDoc],
-                   bulk_page_size: 1,
-                   bulk_wait_interval: 0,
-                   bulk_action: "index"
-                 },
-                 []
-               )
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   %{
+                     store: BulkUploaderUploadStore,
+                     sources: [BulkUploaderUploadDoc],
+                     bulk_page_size: 1,
+                     bulk_wait_interval: 0,
+                     bulk_action: "index"
+                   },
+                   []
+                 )
+      end)
 
       assert Agent.get(agent, & &1.max) == 1
     end
@@ -225,21 +256,64 @@ defmodule TdCore.Search.BulkUploaderTest do
         {:ok, %{"errors" => false, "items" => [], "took" => 1}}
       end)
 
-      assert :ok ==
-               BulkUploader.upload(
-                 @upload_config,
-                 "upload-idx",
-                 %{
-                   store: BulkUploaderUploadStore,
-                   sources: [BulkUploaderUploadDoc],
-                   bulk_page_size: 1,
-                   bulk_wait_interval: 0,
-                   bulk_action: "index"
-                 },
-                 []
-               )
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   %{
+                     store: BulkUploaderUploadStore,
+                     sources: [BulkUploaderUploadDoc],
+                     bulk_page_size: 1,
+                     bulk_wait_interval: 0,
+                     bulk_action: "index"
+                   },
+                   []
+                 )
+      end)
 
       assert Agent.get(agent, & &1.max) >= 2
+    end
+
+    test "consumes store.stream inside store.transaction", %{previous: previous} do
+      Application.put_env(
+        :td_core,
+        TdCore.Search.Cluster,
+        Keyword.put(previous, :reindex_concurrency, 1)
+      )
+
+      alias TdCore.Search.BulkUploaderTxnRequiredStore
+
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   %{
+                     store: BulkUploaderTxnRequiredStore,
+                     sources: [BulkUploaderUploadDoc],
+                     bulk_page_size: 1,
+                     bulk_wait_interval: 0,
+                     bulk_action: "index"
+                   },
+                   []
+                 )
+      end)
+    end
+
+    test "raises when stream is reduced outside transaction" do
+      alias TdCore.Search.BulkUploaderTxnRequiredStore
+
+      assert_raise RuntimeError, "cannot reduce stream outside of transaction", fn ->
+        BulkUploaderTxnRequiredStore
+        |> then(fn store -> store.stream(BulkUploaderUploadDoc) end)
+        |> Enum.to_list()
+      end
     end
   end
 end

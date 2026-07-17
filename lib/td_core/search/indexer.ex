@@ -383,7 +383,9 @@ defmodule TdCore.Search.Indexer do
   end
 
   def log_bulk_post(index, {:ok, %{"errors" => false, "items" => items, "took" => took}}, _action) do
-    Logger.info("#{index}: bulk indexed #{Enum.count(items)} documents (took=#{took})")
+    if bulk_took_log_enabled?() do
+      Logger.info("#{index}: bulk indexed #{Enum.count(items)} documents (took=#{took})")
+    end
   end
 
   def log_bulk_post(index, {:ok, %{"errors" => true, "items" => items}}, action) do
@@ -563,5 +565,12 @@ defmodule TdCore.Search.Indexer do
   defp reindex_concurrency do
     cluster_config()
     |> Keyword.get(:reindex_concurrency, System.schedulers_online())
+  end
+
+  defp bulk_took_log_enabled? do
+    case System.get_env("ES_BULK_TOOK_LOG") do
+      nil -> false
+      value -> String.downcase(String.trim(value)) in ["1", "true", "yes"]
+    end
   end
 end

@@ -8,10 +8,15 @@ defmodule TdCore.Search.BulkUploader do
   alias Elasticsearch.Cluster.Config
   alias Elasticsearch.Index.Bulk
   alias TdCore.Search.Indexer
+  alias TdCore.Search.PhaseProfiler
 
   @doc """
   Uploads all data from the configured store to `index_name`, posting bulk
   pages in parallel when `reindex_concurrency` is greater than 1.
+
+  Consumes `store.stream/1` inside `store.transaction/1`, matching
+  `Elasticsearch.Index.Bulk.upload/4`, so stores that use `Repo.stream/1`
+  (e.g. implementations) stay inside a DB transaction.
   """
   @spec upload(Config.t(), String.t(), map(), list()) :: :ok | {:error, list()}
   def upload(_cluster, _index_name, %{sources: []}, []), do: :ok
@@ -25,14 +30,16 @@ defmodule TdCore.Search.BulkUploader do
     concurrency = reindex_concurrency()
 
     errors =
-      source
-      |> store.stream()
-      |> Stream.map(&Bulk.encode!(config, &1, index_name, action))
-      |> Stream.chunk_every(bulk_page_size)
-      |> Stream.intersperse(bulk_wait_interval)
-      |> post_bulk_pages(config, index_name, concurrency)
-      |> Enum.reduce(errors, fn response, acc ->
-        record_bulk_response(index_name, response, acc, action)
+      store.transaction(fn ->
+        source
+        |> store.stream()
+        |> Stream.map(&Bulk.encode!(config, &1, index_name, action))
+        |> Stream.chunk_every(bulk_page_size)
+        |> Stream.intersperse(bulk_wait_interval)
+        |> post_bulk_pages(config, index_name, concurrency)
+        |> Enum.reduce(errors, fn response, acc ->
+          record_bulk_response(index_name, response, acc, action)
+        end)
       end)
 
     upload(config, index_name, %{index_config | sources: tail}, errors)
@@ -43,13 +50,13 @@ defmodule TdCore.Search.BulkUploader do
   """
   @spec post_bulk_bodies(Enumerable.t(), atom(), String.t(), pos_integer()) :: Enumerable.t()
   def post_bulk_bodies(bodies, cluster, path, concurrency) when concurrency <= 1 do
-    Stream.map(bodies, &Elasticsearch.post(cluster, path, &1))
+    Stream.map(bodies, &post_bulk_body(cluster, path, &1))
   end
 
   def post_bulk_bodies(bodies, cluster, path, concurrency) do
     bodies
     |> Task.async_stream(
-      &Elasticsearch.post(cluster, path, &1),
+      &post_bulk_body(cluster, path, &1),
       max_concurrency: concurrency,
       ordered: true,
       timeout: :infinity
@@ -58,6 +65,10 @@ defmodule TdCore.Search.BulkUploader do
       {:ok, response} -> response
       {:exit, reason} -> {:error, reason}
     end)
+  end
+
+  defp post_bulk_body(cluster, path, body) do
+    PhaseProfiler.phase_time(:bulk_es, fn -> Elasticsearch.post(cluster, path, body) end)
   end
 
   defp post_bulk_pages(pages, config, index_name, concurrency) when concurrency <= 1 do
@@ -85,7 +96,9 @@ defmodule TdCore.Search.BulkUploader do
   end
 
   defp put_bulk_page(config, index_name, items) when is_list(items) do
-    Elasticsearch.put(config, "/#{index_name}/_bulk", Enum.join(items))
+    PhaseProfiler.phase_time(:bulk_es, fn ->
+      Elasticsearch.put(config, "/#{index_name}/_bulk", Enum.join(items))
+    end)
   end
 
   @doc false

@@ -547,4 +547,72 @@ defmodule TdCore.Search.IndexerTest do
       assert :ok == Indexer.refresh(Cluster, "concepts", recv_timeout: 5_000)
     end
   end
+
+  describe "log_bulk_post took= env gate" do
+    setup do
+      previous = System.get_env("ES_BULK_TOOK_LOG")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ES_BULK_TOOK_LOG", previous)
+        else
+          System.delete_env("ES_BULK_TOOK_LOG")
+        end
+      end)
+
+      response =
+        {:ok,
+         %{
+           "errors" => false,
+           "items" => [%{"index" => %{}}, %{"index" => %{}}],
+           "took" => 42
+         }}
+
+      [response: response]
+    end
+
+    test "logs took when ES_BULK_TOOK_LOG is 1", %{response: response} do
+      System.put_env("ES_BULK_TOOK_LOG", "1")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      assert log =~ "structures: bulk indexed 2 documents (took=42)"
+    end
+
+    test "logs took when ES_BULK_TOOK_LOG is true", %{response: response} do
+      System.put_env("ES_BULK_TOOK_LOG", "TRUE")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      assert log =~ "took=42"
+    end
+
+    test "does not log took when ES_BULK_TOOK_LOG is unset", %{response: response} do
+      System.delete_env("ES_BULK_TOOK_LOG")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      refute log =~ "took="
+    end
+
+    test "does not log took when ES_BULK_TOOK_LOG is 0", %{response: response} do
+      System.put_env("ES_BULK_TOOK_LOG", "0")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      refute log =~ "took="
+    end
+  end
 end
