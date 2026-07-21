@@ -13,6 +13,18 @@
 - `TdCore.Search.IndexWorkerImpl` skips duplicate full `:all` reindex casts
   while one is already running.
 
+## [8.8.3] 2026-07-09
+
+### Added
+
+- [TD-7965] Update libs
+
+## [8.8.2] 2026-07-08
+
+### Changed
+
+- [TD-8062] Update libs
+
 ## [8.8.1] 2026-06-30
 
 ### Changed
