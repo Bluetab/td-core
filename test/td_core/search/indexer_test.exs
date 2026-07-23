@@ -615,4 +615,55 @@ defmodule TdCore.Search.IndexerTest do
       refute log =~ "took="
     end
   end
+
+  describe "reindex/2 with ids" do
+    setup do
+      alias Elasticsearch.Cluster.Config
+      alias TdCore.Search.BulkUploaderTxnRequiredStore
+
+      previous_config = Config.get(Cluster)
+      previous_env = Application.get_env(:td_core, TdCore.Search.Cluster, [])
+
+      Application.put_env(
+        :td_core,
+        TdCore.Search.Cluster,
+        Keyword.put(previous_env, :reindex_concurrency, 1)
+      )
+
+      updated =
+        previous_config
+        |> Map.put_new(:json_library, Jason)
+        |> Map.put(:indexes, %{
+          string_test_alias: %{
+            store: BulkUploaderTxnRequiredStore,
+            sources: [TdCore.Search.BulkUploaderUploadDoc],
+            bulk_page_size: 1,
+            bulk_wait_interval: 0,
+            settings: %{}
+          }
+        })
+
+      :sys.replace_state(Cluster, fn _ -> updated end)
+      GenServer.call(Cluster, :save_config)
+
+      on_exit(fn ->
+        :sys.replace_state(Cluster, fn _ -> previous_config end)
+        GenServer.call(Cluster, :save_config)
+        Application.put_env(:td_core, TdCore.Search.Cluster, previous_env)
+      end)
+
+      :ok
+    end
+
+    test "consumes store.stream(ids) inside store.transaction" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/string_test_alias/_bulk", _body, [] ->
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      capture_log(fn ->
+        assert :ok == Indexer.reindex(:test_alias, [12619])
+      end)
+    end
+  end
 end

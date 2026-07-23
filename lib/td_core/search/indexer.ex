@@ -38,15 +38,17 @@ defmodule TdCore.Search.Indexer do
     bulk_page_size = Cluster.setting(index, :bulk_page_size)
     concurrency = reindex_concurrency()
 
-    alias_name
-    |> schema_from_alias()
-    |> store.stream(ids)
-    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
-    |> Stream.chunk_every(bulk_page_size)
-    |> Stream.map(&Enum.join(&1, ""))
-    |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
-    |> Stream.map(&log_bulk_post(alias_name, &1, @action))
-    |> Stream.run()
+    store.transaction(fn ->
+      alias_name
+      |> schema_from_alias()
+      |> store.stream(ids)
+      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
+      |> Stream.chunk_every(bulk_page_size)
+      |> Stream.map(&Enum.join(&1, ""))
+      |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
+      |> Stream.map(&log_bulk_post(alias_name, &1, @action))
+      |> Stream.run()
+    end)
   end
 
   def reindex(index, id), do: reindex(index, [id])
@@ -131,15 +133,17 @@ defmodule TdCore.Search.Indexer do
     bulk_page_size = Cluster.setting(index, :bulk_page_size)
     concurrency = reindex_concurrency()
 
-    alias_name
-    |> schema_from_alias()
-    |> store.stream({:embeddings, ids})
-    |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
-    |> Stream.chunk_every(bulk_page_size)
-    |> Stream.map(&Enum.join(&1, ""))
-    |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
-    |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
-    |> Stream.run()
+    store.transaction(fn ->
+      alias_name
+      |> schema_from_alias()
+      |> store.stream({:embeddings, ids})
+      |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
+      |> Stream.chunk_every(bulk_page_size)
+      |> Stream.map(&Enum.join(&1, ""))
+      |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
+      |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
+      |> Stream.run()
+    end)
   end
 
   defp store_from_alias(alias_name) do

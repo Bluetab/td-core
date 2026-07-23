@@ -38,6 +38,16 @@ defmodule TdCore.Search.BulkUploaderTxnRequiredStore do
     end)
   end
 
+  def stream(_source, ids) when is_list(ids) do
+    Stream.map(ids, fn id ->
+      unless Process.get(@txn_key) do
+        raise "cannot reduce stream outside of transaction"
+      end
+
+      %BulkUploaderUploadDoc{id: id}
+    end)
+  end
+
   def transaction(fun) do
     Process.put(@txn_key, true)
 
