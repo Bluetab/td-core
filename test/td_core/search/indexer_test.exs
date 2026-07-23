@@ -421,4 +421,249 @@ defmodule TdCore.Search.IndexerTest do
       assert :ok = Indexer.ensure_index_exists(:test_alias)
     end
   end
+
+  describe "bulk_load_index_settings/1" do
+    test "overrides refresh_interval and number_of_replicas for bulk load" do
+      settings = %{
+        "refresh_interval" => "5s",
+        "number_of_replicas" => 1,
+        analysis: %{tokenizer: %{}}
+      }
+
+      assert %{
+               "refresh_interval" => "-1",
+               "number_of_replicas" => 0,
+               analysis: %{tokenizer: %{}}
+             } = Indexer.bulk_load_index_settings(settings)
+    end
+  end
+
+  describe "production_index_settings/1" do
+    test "builds restore body from string keys" do
+      settings = %{"refresh_interval" => "10s", "number_of_replicas" => 2}
+
+      assert %{
+               "index" => %{
+                 "refresh_interval" => "10s",
+                 "number_of_replicas" => 2
+               }
+             } = Indexer.production_index_settings(settings)
+    end
+
+    test "falls back to defaults when keys are missing" do
+      assert %{
+               "index" => %{
+                 "refresh_interval" => "5s",
+                 "number_of_replicas" => 1
+               }
+             } = Indexer.production_index_settings(%{})
+    end
+  end
+
+  describe "restore_index_settings/3" do
+    test "puts production settings to the index" do
+      settings = %{"refresh_interval" => "10s", "number_of_replicas" => 2}
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/structures-1/_settings", body, [] ->
+        assert body == %{
+                 "index" => %{
+                   "refresh_interval" => "10s",
+                   "number_of_replicas" => 2
+                 }
+               }
+
+        {:ok, %{"acknowledged" => true}}
+      end)
+
+      assert :ok = Indexer.restore_index_settings(Cluster, "structures-1", settings)
+    end
+
+    test "returns error when Elasticsearch rejects the update" do
+      error = %HTTPoison.Error{reason: :timeout, id: nil}
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/structures-1/_settings", _, [] ->
+        {:error, error}
+      end)
+
+      assert {:error, ^error} =
+               Indexer.restore_index_settings(Cluster, "structures-1", %{
+                 "refresh_interval" => "5s",
+                 "number_of_replicas" => 1
+               })
+    end
+  end
+
+  describe "finalize_hot_swap_index/2" do
+    test "refreshes without forcemerge using dedicated recv_timeout" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/structures-1/_refresh", _, opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:ok, %{"_shards" => %{"successful" => 1}}}
+      end)
+
+      assert :ok = Indexer.finalize_hot_swap_index(Cluster, "structures-1")
+    end
+
+    test "returns error when refresh times out" do
+      error = %HTTPoison.Error{reason: :timeout, id: nil}
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/structures-1/_refresh", _, opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:error, error}
+      end)
+
+      assert {:error, ^error} = Indexer.finalize_hot_swap_index(Cluster, "structures-1")
+    end
+  end
+
+  describe "refresh skip_forcemerge" do
+    test "skips forcemerge when skip_forcemerge is true" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/concepts/_refresh", _, [] ->
+        {:ok, :success}
+      end)
+
+      assert :ok == Indexer.refresh(Cluster, "concepts", skip_forcemerge: true)
+    end
+
+    test "passes recv_timeout to refresh and forcemerge requests" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/concepts/_refresh", _, opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:ok, :success}
+      end)
+      |> expect(:request, fn _,
+                             :post,
+                             "/concepts/_forcemerge?max_num_segments=5",
+                             _,
+                             opts ->
+        assert Keyword.get(opts, :recv_timeout) == 5_000
+        {:ok, :success}
+      end)
+
+      assert :ok == Indexer.refresh(Cluster, "concepts", recv_timeout: 5_000)
+    end
+  end
+
+  describe "log_bulk_post took= env gate" do
+    setup do
+      previous = System.get_env("ES_BULK_TOOK_LOG")
+
+      on_exit(fn ->
+        if previous do
+          System.put_env("ES_BULK_TOOK_LOG", previous)
+        else
+          System.delete_env("ES_BULK_TOOK_LOG")
+        end
+      end)
+
+      response =
+        {:ok,
+         %{
+           "errors" => false,
+           "items" => [%{"index" => %{}}, %{"index" => %{}}],
+           "took" => 42
+         }}
+
+      [response: response]
+    end
+
+    test "logs took when ES_BULK_TOOK_LOG is 1", %{response: response} do
+      System.put_env("ES_BULK_TOOK_LOG", "1")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      assert log =~ "structures: bulk indexed 2 documents (took=42)"
+    end
+
+    test "logs took when ES_BULK_TOOK_LOG is true", %{response: response} do
+      System.put_env("ES_BULK_TOOK_LOG", "TRUE")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      assert log =~ "took=42"
+    end
+
+    test "does not log took when ES_BULK_TOOK_LOG is unset", %{response: response} do
+      System.delete_env("ES_BULK_TOOK_LOG")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      refute log =~ "took="
+    end
+
+    test "does not log took when ES_BULK_TOOK_LOG is 0", %{response: response} do
+      System.put_env("ES_BULK_TOOK_LOG", "0")
+
+      log =
+        capture_log(fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      refute log =~ "took="
+    end
+  end
+
+  describe "reindex/2 with ids" do
+    setup do
+      alias Elasticsearch.Cluster.Config
+      alias TdCore.Search.BulkUploaderTxnRequiredStore
+
+      previous_config = Config.get(Cluster)
+      previous_env = Application.get_env(:td_core, TdCore.Search.Cluster, [])
+
+      Application.put_env(
+        :td_core,
+        TdCore.Search.Cluster,
+        Keyword.put(previous_env, :reindex_concurrency, 1)
+      )
+
+      updated =
+        previous_config
+        |> Map.put_new(:json_library, Jason)
+        |> Map.put(:indexes, %{
+          string_test_alias: %{
+            store: BulkUploaderTxnRequiredStore,
+            sources: [TdCore.Search.BulkUploaderUploadDoc],
+            bulk_page_size: 1,
+            bulk_wait_interval: 0,
+            settings: %{}
+          }
+        })
+
+      :sys.replace_state(Cluster, fn _ -> updated end)
+      GenServer.call(Cluster, :save_config)
+
+      on_exit(fn ->
+        :sys.replace_state(Cluster, fn _ -> previous_config end)
+        GenServer.call(Cluster, :save_config)
+        Application.put_env(:td_core, TdCore.Search.Cluster, previous_env)
+      end)
+
+      :ok
+    end
+
+    test "consumes store.stream(ids) inside store.transaction" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/string_test_alias/_bulk", _body, [] ->
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      capture_log(fn ->
+        assert :ok == Indexer.reindex(:test_alias, [12619])
+      end)
+    end
+  end
 end

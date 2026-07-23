@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8270] `TdCore.Search.BulkUploader` for parallel Elasticsearch bulk
+  uploads during hot-swap and partial reindex.
+
+### Changed
+
+- `TdCore.Search.Indexer` uses parallel bulk posts via `ES_REINDEX_CONCURRENCY`.
+- `TdCore.Search.IndexWorkerImpl` skips duplicate full `:all` reindex casts
+  while one is already running.
+
 ## [8.8.3] 2026-07-09
 
 ### Added
