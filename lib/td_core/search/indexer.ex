@@ -338,6 +338,10 @@ defmodule TdCore.Search.Indexer do
       {:error, %Elasticsearch.Exception{message: message}} = failed_update ->
         Logger.warning("Index #{name} template update failed: #{message}")
         failed_update
+
+      {:error, error} = failed_update ->
+        Logger.warning("Index #{name} template update failed: #{inspect(error)}")
+        failed_update
     end
   end
 
