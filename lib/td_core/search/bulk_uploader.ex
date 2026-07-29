@@ -32,7 +32,7 @@ defmodule TdCore.Search.BulkUploader do
     bulk_page_size = index_config[:bulk_page_size] || 5000
     bulk_wait_interval = index_config[:bulk_wait_interval] || 0
     action = index_config[:bulk_action] || "create"
-    concurrency = reindex_concurrency()
+    concurrency = index_config[:reindex_concurrency] || reindex_concurrency()
 
     errors =
       store.transaction(fn ->

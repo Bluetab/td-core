@@ -12,6 +12,8 @@
 - [TD-8270] `:refresh_recv_timeout` cluster option (also accepted as an
   `Indexer.refresh/3` opt) capping the `_refresh` request at 5s so it does not
   inherit `ES_RECV_TIMEOUT`. `_forcemerge` keeps the cluster default.
+- [TD-8270] `:reindex_concurrency` accepted per index in the `indexes` config,
+  overriding the cluster-wide value for that index.
 
 ### Changed
 
