@@ -108,8 +108,11 @@ defmodule TdCore.Search.BulkUploaderTest do
       ElasticsearchMock
       |> expect(:request, 2, fn _, :post, "/idx/_bulk", body, [] ->
         case body do
-          "ok" -> {:ok, %{"errors" => false, "items" => []}}
-          "fail" -> {:ok, %{"errors" => true, "items" => [%{"index" => %{"error" => %{"type" => "x"}}}]}}
+          "ok" ->
+            {:ok, %{"errors" => false, "items" => []}}
+
+          "fail" ->
+            {:ok, %{"errors" => true, "items" => [%{"index" => %{"error" => %{"type" => "x"}}}]}}
         end
       end)
 

@@ -211,7 +211,11 @@ defmodule TdCore.Search.ReindexBenchmark do
   defp gc_stats_pair({count, words}), do: {count, words}
   defp gc_stats_pair({count, words, _}), do: {count, words}
 
-  defp log_run_metrics(%{micros: micros, doc_count: doc_count} = metrics, profile_interval_ms, info) do
+  defp log_run_metrics(
+         %{micros: micros, doc_count: doc_count} = metrics,
+         profile_interval_ms,
+         info
+       ) do
     throughput = throughput_per_sec(doc_count, micros)
 
     info.("""

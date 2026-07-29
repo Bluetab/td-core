@@ -267,7 +267,11 @@ defmodule TdCore.Search.Indexer do
 
   @doc false
   def restore_index_settings(cluster, index_name, settings) when is_map(settings) do
-    case Elasticsearch.put(cluster, "/#{index_name}/_settings", production_index_settings(settings)) do
+    case Elasticsearch.put(
+           cluster,
+           "/#{index_name}/_settings",
+           production_index_settings(settings)
+         ) do
       {:ok, _} -> :ok
       {:error, _} = error -> error
     end

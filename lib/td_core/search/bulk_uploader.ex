@@ -22,7 +22,12 @@ defmodule TdCore.Search.BulkUploader do
   def upload(_cluster, _index_name, %{sources: []}, []), do: :ok
   def upload(_cluster, _index_name, %{sources: []}, errors), do: {:error, errors}
 
-  def upload(cluster, index_name, %{store: store, sources: [source | tail]} = index_config, errors) do
+  def upload(
+        cluster,
+        index_name,
+        %{store: store, sources: [source | tail]} = index_config,
+        errors
+      ) do
     config = Config.get(cluster)
     bulk_page_size = index_config[:bulk_page_size] || 5000
     bulk_wait_interval = index_config[:bulk_wait_interval] || 0
