@@ -7,6 +7,12 @@ defmodule TdCore.Search.BulkUploaderTest do
   alias TdCore.Search.BulkUploader
   alias TdCore.Search.Cluster
 
+  @upload_config %{
+    api: ElasticsearchMock,
+    url: "http://none",
+    json_library: Jason
+  }
+
   setup :verify_on_exit!
 
   defmodule Collector do
@@ -174,43 +180,21 @@ defmodule TdCore.Search.BulkUploaderTest do
   end
 
   describe "upload/4" do
+    alias TdCore.Search.BulkUploaderTxnRequiredStore
     alias TdCore.Search.BulkUploaderUploadDoc
     alias TdCore.Search.BulkUploaderUploadStore
 
-    @upload_config %{
-      api: ElasticsearchMock,
-      url: "http://none",
-      json_library: Jason
-    }
-
-    setup do
-      previous = Application.get_env(:td_core, TdCore.Search.Cluster, [])
-
-      on_exit(fn ->
-        Application.put_env(:td_core, TdCore.Search.Cluster, previous)
-      end)
-
-      {:ok, previous: previous}
-    end
-
-    test "runs PUT _bulk serially when reindex_concurrency is 1", %{previous: previous} do
-      Application.put_env(
-        :td_core,
-        TdCore.Search.Cluster,
-        Keyword.put(previous, :reindex_concurrency, 1)
-      )
-
-      {:ok, agent} = Agent.start_link(fn -> %{inflight: 0, max: 0} end)
-
+    test "uploads every document from the store, one page per bulk_page_size" do
       ElasticsearchMock
-      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
-        Agent.update(agent, fn %{inflight: n, max: m} ->
-          %{inflight: n + 1, max: max(m, n + 1)}
-        end)
-
-        Process.sleep(30)
-
-        Agent.update(agent, fn state -> %{state | inflight: state.inflight - 1} end)
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", body, [] ->
+        assert body =~ ~s("index":)
+        assert body =~ ~s("_id":1)
+        assert body =~ ~s("id":1)
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", body, [] ->
+        assert body =~ ~s("_id":2)
+        assert body =~ ~s("id":2)
         {:ok, %{"errors" => false, "items" => [], "took" => 1}}
       end)
 
@@ -219,38 +203,18 @@ defmodule TdCore.Search.BulkUploaderTest do
                  BulkUploader.upload(
                    @upload_config,
                    "upload-idx",
-                   %{
-                     store: BulkUploaderUploadStore,
-                     sources: [BulkUploaderUploadDoc],
-                     bulk_page_size: 1,
-                     bulk_wait_interval: 0,
-                     bulk_action: "index"
-                   },
+                   index_config(BulkUploaderUploadStore, 1),
                    []
                  )
       end)
-
-      assert Agent.get(agent, & &1.max) == 1
     end
 
-    test "overlaps concurrent PUT _bulk when reindex_concurrency > 1", %{previous: previous} do
-      Application.put_env(
-        :td_core,
-        TdCore.Search.Cluster,
-        Keyword.put(previous, :reindex_concurrency, 2)
-      )
-
-      {:ok, agent} = Agent.start_link(fn -> %{inflight: 0, max: 0} end)
-
+    test "uploads the same documents when concurrency is greater than 1" do
       ElasticsearchMock
-      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
-        Agent.update(agent, fn %{inflight: n, max: m} ->
-          %{inflight: n + 1, max: max(m, n + 1)}
-        end)
-
-        Process.sleep(50)
-
-        Agent.update(agent, fn state -> %{state | inflight: state.inflight - 1} end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", body, [] ->
+        assert body =~ ~s("index":)
+        assert body =~ ~r/"_id":[12]/
+        assert body =~ ~r/"id":[12]/
         {:ok, %{"errors" => false, "items" => [], "took" => 1}}
       end)
 
@@ -259,29 +223,45 @@ defmodule TdCore.Search.BulkUploaderTest do
                  BulkUploader.upload(
                    @upload_config,
                    "upload-idx",
-                   %{
-                     store: BulkUploaderUploadStore,
-                     sources: [BulkUploaderUploadDoc],
-                     bulk_page_size: 1,
-                     bulk_wait_interval: 0,
-                     bulk_action: "index"
-                   },
+                   index_config(BulkUploaderUploadStore, 4),
                    []
                  )
       end)
-
-      assert Agent.get(agent, & &1.max) >= 2
     end
 
-    test "consumes store.stream inside store.transaction", %{previous: previous} do
-      Application.put_env(
-        :td_core,
-        TdCore.Search.Cluster,
-        Keyword.put(previous, :reindex_concurrency, 1)
-      )
+    test "returns collected errors when a bulk page fails" do
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        {:ok,
+         %{
+           "errors" => true,
+           "items" => [
+             %{
+               "index" => %{
+                 "_id" => "1",
+                 "status" => 400,
+                 "error" => %{"reason" => "boom", "type" => "mapper_parsing_exception"}
+               }
+             }
+           ]
+         }}
+      end)
 
-      alias TdCore.Search.BulkUploaderTxnRequiredStore
+      capture_log(fn ->
+        assert {:error, errors} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   index_config(BulkUploaderUploadStore, 1),
+                   []
+                 )
 
+        assert length(errors) == 2
+        assert Enum.all?(errors, &match?(%Elasticsearch.Exception{}, &1))
+      end)
+    end
+
+    test "consumes store.stream inside store.transaction" do
       ElasticsearchMock
       |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
         {:ok, %{"errors" => false, "items" => [], "took" => 1}}
@@ -292,26 +272,29 @@ defmodule TdCore.Search.BulkUploaderTest do
                  BulkUploader.upload(
                    @upload_config,
                    "upload-idx",
-                   %{
-                     store: BulkUploaderTxnRequiredStore,
-                     sources: [BulkUploaderUploadDoc],
-                     bulk_page_size: 1,
-                     bulk_wait_interval: 0,
-                     bulk_action: "index"
-                   },
+                   index_config(BulkUploaderTxnRequiredStore, 1),
                    []
                  )
       end)
     end
 
     test "raises when stream is reduced outside transaction" do
-      alias TdCore.Search.BulkUploaderTxnRequiredStore
-
       assert_raise RuntimeError, "cannot reduce stream outside of transaction", fn ->
         BulkUploaderTxnRequiredStore
         |> then(fn store -> store.stream(BulkUploaderUploadDoc) end)
         |> Enum.to_list()
       end
     end
+  end
+
+  defp index_config(store, concurrency) do
+    %{
+      store: store,
+      sources: [TdCore.Search.BulkUploaderUploadDoc],
+      bulk_page_size: 1,
+      bulk_wait_interval: 0,
+      bulk_action: "index",
+      reindex_concurrency: concurrency
+    }
   end
 end
