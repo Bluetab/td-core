@@ -24,10 +24,9 @@ environment by td-core. The host application (e.g. `td-dd`) maps env vars in
 service's README for the full list (`ES_REINDEX_CONCURRENCY`, `ES_RECV_TIMEOUT`,
 `DELETE_EXISTING_INDEX`, …).
 
-Variables read directly by td-core at runtime:
-
-- `ES_BULK_TOOK_LOG`: when set to `1`, `true`, or `yes` (case-insensitive), logs
-  Elasticsearch `took` per successful bulk page. Default: off.
+Per-page bulk indexing counts and Elasticsearch `took` are logged at `debug`
+level, so they follow the service's configured `Logger` level rather than a
+dedicated variable.
 
 ### Post hot-swap forcemerge
 

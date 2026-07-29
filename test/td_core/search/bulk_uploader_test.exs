@@ -125,44 +125,39 @@ defmodule TdCore.Search.BulkUploaderTest do
   end
 
   describe "record_bulk_response/4" do
-    setup do
-      previous = System.get_env("ES_BULK_TOOK_LOG")
-
-      on_exit(fn ->
-        if previous do
-          System.put_env("ES_BULK_TOOK_LOG", previous)
-        else
-          System.delete_env("ES_BULK_TOOK_LOG")
-        end
-      end)
-
-      :ok
-    end
-
-    test "logs took on successful bulk response when ES_BULK_TOOK_LOG is enabled" do
-      System.put_env("ES_BULK_TOOK_LOG", "1")
-
-      response = {:ok, %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
+    test "logs took on successful bulk response and collects no errors" do
+      response =
+        {:ok,
+         %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
 
       log =
-        capture_log(fn ->
+        capture_log([level: :debug], fn ->
           assert [] == BulkUploader.record_bulk_response("structures-1", response, [], "index")
         end)
 
       assert log =~ "structures-1: bulk indexed 2 documents (took=123)"
     end
 
-    test "does not log took when ES_BULK_TOOK_LOG is unset" do
-      System.delete_env("ES_BULK_TOOK_LOG")
+    test "collects errors from a failed bulk response" do
+      response =
+        {:ok,
+         %{
+           "errors" => true,
+           "items" => [
+             %{
+               "index" => %{
+                 "_id" => "7",
+                 "status" => 400,
+                 "error" => %{"reason" => "boom", "type" => "mapper_parsing_exception"}
+               }
+             }
+           ]
+         }}
 
-      response = {:ok, %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
-
-      log =
-        capture_log(fn ->
-          assert [] == BulkUploader.record_bulk_response("structures-1", response, [], "index")
-        end)
-
-      refute log =~ "took="
+      capture_log(fn ->
+        assert [%Elasticsearch.Exception{}] =
+                 BulkUploader.record_bulk_response("structures-1", response, [], "index")
+      end)
     end
 
     test "does not log bulk wait interval ok" do
