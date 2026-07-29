@@ -10,6 +10,7 @@ defmodule TdCore.Search.Indexer do
   alias Elasticsearch.Index.Bulk
   alias TdCluster.Cluster.TdDd.Tasks
   alias TdCluster.Cluster.TdLm
+  alias TdCore.Search.BulkUploader
   alias TdCore.Search.Cluster
   alias TdCore.Search.ElasticDocumentProtocol
 
@@ -33,17 +34,18 @@ defmodule TdCore.Search.Indexer do
   @action "index"
   def reindex(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
-
     store = store_from_alias(alias_name)
+    bulk_page_size = Cluster.setting(index, :bulk_page_size)
+    concurrency = reindex_concurrency()
 
     store.transaction(fn ->
       alias_name
       |> schema_from_alias()
       |> store.stream(ids)
       |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @action))
-      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+      |> Stream.chunk_every(bulk_page_size)
       |> Stream.map(&Enum.join(&1, ""))
-      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+      |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
       |> Stream.map(&log_bulk_post(alias_name, &1, @action))
       |> Stream.run()
     end)
@@ -127,17 +129,18 @@ defmodule TdCore.Search.Indexer do
   @update_action "update"
   def put_embeddings(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
-
     store = store_from_alias(alias_name)
+    bulk_page_size = Cluster.setting(index, :bulk_page_size)
+    concurrency = reindex_concurrency()
 
     store.transaction(fn ->
       alias_name
       |> schema_from_alias()
       |> store.stream({:embeddings, ids})
       |> Stream.map(&Bulk.encode!(Cluster, &1, alias_name, @update_action))
-      |> Stream.chunk_every(Cluster.setting(index, :bulk_page_size))
+      |> Stream.chunk_every(bulk_page_size)
       |> Stream.map(&Enum.join(&1, ""))
-      |> Stream.map(&Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", &1))
+      |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
       |> Stream.map(&log_bulk_post(alias_name, &1, @update_action))
       |> Stream.run()
     end)
@@ -240,6 +243,40 @@ defmodule TdCore.Search.Indexer do
     put_template_error
   end
 
+  @bulk_load_refresh_interval "-1"
+  @bulk_load_replicas 0
+  @refresh_recv_timeout 5_000
+
+  @doc false
+  def bulk_load_index_settings(settings) when is_map(settings) do
+    settings
+    |> Map.put("refresh_interval", @bulk_load_refresh_interval)
+    |> Map.put("number_of_replicas", @bulk_load_replicas)
+    |> Map.drop([:refresh_interval, :number_of_replicas])
+  end
+
+  @doc false
+  def production_index_settings(settings) when is_map(settings) do
+    %{
+      "index" => %{
+        "refresh_interval" => index_setting(settings, "refresh_interval", "5s"),
+        "number_of_replicas" => index_setting(settings, "number_of_replicas", 1)
+      }
+    }
+  end
+
+  @doc false
+  def restore_index_settings(cluster, index_name, settings) when is_map(settings) do
+    case Elasticsearch.put(
+           cluster,
+           "/#{index_name}/_settings",
+           production_index_settings(settings)
+         ) do
+      {:ok, _} -> :ok
+      {:error, _} = error -> error
+    end
+  end
+
   # Modified from Elasticsearch.Index.hot_swap for better logging and
   # error handling
   defp hot_swap(alias_name) do
@@ -248,11 +285,16 @@ defmodule TdCore.Search.Indexer do
     name = Index.build_name(alias_name)
     config = Config.get(Cluster)
     index_config = config[:indexes][alias_name]
-    settings = Map.get(mappings, :settings, index_config.settings)
+    production_settings = Map.get(mappings, :settings, index_config.settings)
+    bulk_load_settings = bulk_load_index_settings(production_settings)
 
     with {:index_from_settings, :ok} <-
-           {:index_from_settings, Index.create_from_settings(config, name, %{settings: settings})},
-         {:bulk_upload, :ok} <- {:bulk_upload, Bulk.upload(config, name, index_config)},
+           {:index_from_settings,
+            Index.create_from_settings(config, name, %{settings: bulk_load_settings})},
+         {:bulk_upload, :ok} <-
+           {:bulk_upload, BulkUploader.upload(config, name, index_config, [])},
+         {:restore_settings, :ok} <-
+           {:restore_settings, restore_index_settings(Cluster, name, production_settings)},
          {:index_alias, :ok} <- {:index_alias, Index.alias(config, name, to_string(alias_name))},
          {:index_clean_starting, :ok} <-
            {:index_clean_starting, Index.clean_starting_with(config, to_string(alias_name), 2)},
@@ -297,6 +339,10 @@ defmodule TdCore.Search.Indexer do
 
       {:error, %Elasticsearch.Exception{message: message}} = failed_update ->
         Logger.warning("Index #{name} template update failed: #{message}")
+        failed_update
+
+      {:error, error} = failed_update ->
+        Logger.warning("Index #{name} template update failed: #{inspect(error)}")
         failed_update
     end
   end
@@ -347,7 +393,7 @@ defmodule TdCore.Search.Indexer do
   end
 
   def log_bulk_post(index, {:ok, %{"errors" => false, "items" => items, "took" => took}}, _action) do
-    Logger.info("#{index}: bulk indexed #{Enum.count(items)} documents (took=#{took})")
+    Logger.debug("#{index}: bulk indexed #{Enum.count(items)} documents (took=#{took})")
   end
 
   def log_bulk_post(index, {:ok, %{"errors" => true, "items" => items}}, action) do
@@ -408,16 +454,25 @@ defmodule TdCore.Search.Indexer do
   end
 
   def refresh(cluster, name, opts \\ []) do
+    with {:ok, _} <-
+           Elasticsearch.post(cluster, "/#{name}/_refresh", %{}, refresh_http_opts(opts)),
+         :ok <- maybe_forcemerge(cluster, name, opts, skip_forcemerge?(opts)),
+         do: :ok
+  end
+
+  defp maybe_forcemerge(_cluster, _name, _opts, true), do: :ok
+
+  defp maybe_forcemerge(cluster, name, opts, false) do
     forcemerge_options = forcemerge_config(opts)
 
-    with {:ok, _} <- Elasticsearch.post(cluster, "/#{name}/_refresh", %{}),
-         {:ok, _} <-
-           Elasticsearch.post(
-             cluster,
-             "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
-             %{}
-           ),
-         do: :ok
+    case Elasticsearch.post(
+           cluster,
+           "/#{name}/_forcemerge?" <> URI.encode_query(forcemerge_options),
+           %{}
+         ) do
+      {:ok, _} -> :ok
+      error -> error
+    end
   end
 
   defp message(%Elasticsearch.Exception{} = e) do
@@ -487,6 +542,34 @@ defmodule TdCore.Search.Indexer do
   end
 
   defp cluster_config do
-    Application.get_env(:td_core, TdCore.Search.Cluster)
+    Application.get_env(:td_core, TdCore.Search.Cluster, [])
+  end
+
+  defp skip_forcemerge?(opts) do
+    default_config = Keyword.get(cluster_config(), :skip_forcemerge, false)
+
+    Keyword.get(opts, :skip_forcemerge, default_config)
+  end
+
+  defp refresh_http_opts(opts) do
+    default_config =
+      Keyword.get(cluster_config(), :refresh_recv_timeout, @refresh_recv_timeout)
+
+    case Keyword.get(opts, :refresh_recv_timeout, default_config) do
+      nil -> []
+      timeout -> [recv_timeout: timeout]
+    end
+  end
+
+  defp index_setting(settings, key, default) when is_binary(key) do
+    atom_key = String.to_existing_atom(key)
+    Map.get(settings, key) || Map.get(settings, atom_key) || default
+  rescue
+    ArgumentError -> Map.get(settings, key, default)
+  end
+
+  defp reindex_concurrency do
+    cluster_config()
+    |> Keyword.get(:reindex_concurrency, System.schedulers_online())
   end
 end

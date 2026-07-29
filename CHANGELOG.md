@@ -1,5 +1,24 @@
 # Changelog
 
+## [8.9.0] 2026-07-29
+
+### Added
+
+- [TD-8270] `TdCore.Search.BulkUploader` for parallel Elasticsearch bulk
+  uploads during hot-swap and partial reindex.
+- [TD-8270] `:skip_forcemerge` cluster option (also accepted as an
+  `Indexer.refresh/3` opt), letting each service decide whether the post
+  hot-swap forcemerge runs. Defaults to `false`, preserving previous behaviour.
+- [TD-8270] `:refresh_recv_timeout` cluster option (also accepted as an
+  `Indexer.refresh/3` opt) capping the `_refresh` request at 5s so it does not
+  inherit `ES_RECV_TIMEOUT`. `_forcemerge` keeps the cluster default.
+- [TD-8270] `:reindex_concurrency` accepted per index in the `indexes` config,
+  overriding the cluster-wide value for that index.
+
+### Changed
+
+- `TdCore.Search.Indexer` uses parallel bulk posts via `ES_REINDEX_CONCURRENCY`.
+
 ## [8.8.3] 2026-07-09
 
 ### Added
