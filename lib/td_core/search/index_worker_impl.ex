@@ -74,37 +74,23 @@ defmodule TdCore.Search.IndexWorkerImpl do
   @impl GenServer
   def init(index) do
     Logger.info("Running IndexWorker for index #{index}")
-    {:ok, %{index: index, reindexing_all: false}}
+    {:ok, index}
   end
 
   @impl GenServer
-  def handle_cast({:reindex, :all}, %{reindexing_all: true, index: index} = state) do
-    Logger.warning("Skipping duplicate full reindex for #{index}; one is already in progress")
-    {:noreply, state}
-  end
-
-  @impl GenServer
-  def handle_cast({:reindex, ids}, %{index: index} = state) do
+  def handle_cast({:reindex, ids}, index) do
     Logger.info("Started indexing for #{index}")
-
-    reindexing_all? = ids == :all
-
-    state =
-      if reindexing_all?, do: %{state | reindexing_all: true}, else: state
 
     Timer.time(
       fn -> Indexer.reindex(index, ids) end,
       fn millis, _ -> Logger.info("#{index} indexed in #{millis}ms") end
     )
 
-    state =
-      if reindexing_all?, do: %{state | reindexing_all: false}, else: state
-
-    {:noreply, state}
+    {:noreply, index}
   end
 
   @impl GenServer
-  def handle_cast({:put_embeddings, ids}, %{index: index} = state) do
+  def handle_cast({:put_embeddings, ids}, index) do
     Logger.info("Started embeddings update for #{index}")
 
     Timer.time(
@@ -112,28 +98,28 @@ defmodule TdCore.Search.IndexWorkerImpl do
       fn millis, _ -> Logger.info("#{index} embeddings put in #{millis} ms") end
     )
 
-    {:noreply, state}
+    {:noreply, index}
   end
 
   @impl GenServer
-  def handle_cast({:refresh_links, ids}, %{index: index} = state) do
+  def handle_cast({:refresh_links, ids}, index) do
     :ok = Indexer.refresh_links(index, ids)
 
-    {:noreply, state}
+    {:noreply, index}
   end
 
   @impl GenServer
-  def handle_cast({:delete, ids_or_tuple}, %{index: index} = state) do
+  def handle_cast({:delete, ids_or_tuple}, index) do
     Timer.time(
       fn -> Indexer.delete(index, ids_or_tuple) end,
       fn millis, _ -> Logger.info("#{index} deleted in #{millis}ms") end
     )
 
-    {:noreply, state}
+    {:noreply, index}
   end
 
   @impl GenServer
-  def handle_call({:index_document, document}, _from, %{index: index} = state) do
+  def handle_call({:index_document, document}, _from, index) do
     Logger.info("Indexing document for #{index}")
 
     response =
@@ -142,11 +128,11 @@ defmodule TdCore.Search.IndexWorkerImpl do
         fn millis, _ -> Logger.info("#{index} document indexed in #{millis}ms") end
       )
 
-    {:reply, response, state}
+    {:reply, response, index}
   end
 
   @impl GenServer
-  def handle_call({:index_documents_batch, documents}, _from, %{index: index} = state) do
+  def handle_call({:index_documents_batch, documents}, _from, index) do
     Logger.info("Indexing #{length(documents)} documents for #{index}")
 
     response =
@@ -155,18 +141,18 @@ defmodule TdCore.Search.IndexWorkerImpl do
         fn millis, _ -> Logger.info("#{index} batch indexed in #{millis}ms") end
       )
 
-    {:reply, response, state}
+    {:reply, response, index}
   end
 
   @impl GenServer
-  def handle_call({:delete_index_documents_by_query, query}, _from, %{index: index} = state) do
+  def handle_call({:delete_index_documents_by_query, query}, _from, index) do
     response =
       Timer.time(
         fn -> Indexer.delete_index_documents_by_query(index, query) end,
         fn millis, _ -> Logger.info("#{index} documents deleted in #{millis}ms") end
       )
 
-    {:reply, response, state}
+    {:reply, response, index}
   end
 
   defp get_indexes(module) do
