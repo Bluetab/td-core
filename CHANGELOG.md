@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+## [8.9.1] 2026-08-07
+
 ### Changed
 
 - [TD-8284] Update td-cluster lib
+- [TD-8284] Remove debug logs from BulkUploader and Indexer success paths
 
 ## [8.9.0] 2026-07-29
 
