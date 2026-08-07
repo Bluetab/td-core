@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.10.0] 2026-08-07
+
+### Changed
+
+- [TD-8284] Update td-cluster lib
+
 ## [8.9.0] 2026-07-29
 
 ### Added

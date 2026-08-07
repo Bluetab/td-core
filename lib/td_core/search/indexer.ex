@@ -456,8 +456,7 @@ defmodule TdCore.Search.Indexer do
   def refresh(cluster, name, opts \\ []) do
     with {:ok, _} <-
            Elasticsearch.post(cluster, "/#{name}/_refresh", %{}, refresh_http_opts(opts)),
-         :ok <- maybe_forcemerge(cluster, name, opts, skip_forcemerge?(opts)),
-         do: :ok
+         do: maybe_forcemerge(cluster, name, opts, skip_forcemerge?(opts))
   end
 
   defp maybe_forcemerge(_cluster, _name, _opts, true), do: :ok
