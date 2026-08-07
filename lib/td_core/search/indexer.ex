@@ -392,12 +392,8 @@ defmodule TdCore.Search.Indexer do
     end
   end
 
-  def log_bulk_post(
-        _index,
-        {:ok, %{"errors" => false, "items" => _items, "took" => _took}},
-        _action
-      ) do
-    :ok
+  def log_bulk_post(index, {:ok, %{"errors" => false, "items" => items, "took" => took}}, _action) do
+    Logger.debug("#{index}: bulk indexed #{Enum.count(items)} documents (took=#{took})")
   end
 
   def log_bulk_post(index, {:ok, %{"errors" => true, "items" => items}}, action) do

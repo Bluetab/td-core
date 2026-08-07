@@ -581,7 +581,7 @@ defmodule TdCore.Search.IndexerTest do
   end
 
   describe "log_bulk_post on success" do
-    test "returns :ok on successful bulk response" do
+    test "logs the indexed count and took at debug level" do
       response =
         {:ok,
          %{
@@ -590,10 +590,15 @@ defmodule TdCore.Search.IndexerTest do
            "took" => 42
          }}
 
-      assert :ok == Indexer.log_bulk_post("structures", response, "index")
+      log =
+        capture_log([level: :debug], fn ->
+          assert :ok == Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      assert log =~ "structures: bulk indexed 2 documents (took=42)"
     end
 
-    test "returns :ok without logging" do
+    test "is filtered out when the log level is above debug" do
       response =
         {:ok,
          %{
@@ -602,7 +607,12 @@ defmodule TdCore.Search.IndexerTest do
            "took" => 42
          }}
 
-      assert :ok == Indexer.log_bulk_post("structures", response, "index")
+      log =
+        capture_log([level: :info], fn ->
+          Indexer.log_bulk_post("structures", response, "index")
+        end)
+
+      refute log =~ "took="
     end
   end
 

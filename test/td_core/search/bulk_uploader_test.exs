@@ -134,12 +134,17 @@ defmodule TdCore.Search.BulkUploaderTest do
   end
 
   describe "record_bulk_response/4" do
-    test "collects no errors on successful bulk response" do
+    test "logs took on successful bulk response and collects no errors" do
       response =
         {:ok,
          %{"errors" => false, "items" => [%{"index" => %{}}, %{"index" => %{}}], "took" => 123}}
 
-      assert [] == BulkUploader.record_bulk_response("structures-1", response, [], "index")
+      log =
+        capture_log([level: :debug], fn ->
+          assert [] == BulkUploader.record_bulk_response("structures-1", response, [], "index")
+        end)
+
+      assert log =~ "structures-1: bulk indexed 2 documents (took=123)"
     end
 
     test "collects errors from a failed bulk response" do
