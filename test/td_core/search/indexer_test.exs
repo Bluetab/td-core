@@ -662,8 +662,31 @@ defmodule TdCore.Search.IndexerTest do
       end)
 
       capture_log(fn ->
-        assert :ok == Indexer.reindex(:test_alias, [12619])
+        assert :ok == Indexer.reindex(:test_alias, [12_619])
       end)
+    end
+  end
+
+  describe "refresh error handling" do
+    test "returns error when _refresh fails" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/concepts/_refresh", _, _opts ->
+        {:error, :timeout}
+      end)
+
+      assert {:error, :timeout} = Indexer.refresh(Cluster, "concepts")
+    end
+
+    test "returns error when _forcemerge fails" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/concepts/_refresh", _, _opts ->
+        {:ok, :success}
+      end)
+      |> expect(:request, fn _, :post, "/concepts/_forcemerge?max_num_segments=5", _, _opts ->
+        {:error, :nodedown}
+      end)
+
+      assert {:error, :nodedown} = Indexer.refresh(Cluster, "concepts")
     end
   end
 end
