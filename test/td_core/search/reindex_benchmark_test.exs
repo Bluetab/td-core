@@ -1,7 +1,7 @@
 defmodule TdCore.Search.ReindexBenchmarkTest do
   use ExUnit.Case, async: false
 
-  import ExUnit.CaptureIO
+  import ExUnit.CaptureLog
 
   alias TdCore.Search.ReindexBenchmark
 
@@ -13,7 +13,7 @@ defmodule TdCore.Search.ReindexBenchmarkTest do
       end
 
       output =
-        capture_io(fn ->
+        capture_log(fn ->
           results =
             ReindexBenchmark.run(:structures, [1, 2, 3],
               doc_count: 3,
@@ -47,7 +47,7 @@ defmodule TdCore.Search.ReindexBenchmarkTest do
       end
 
       output =
-        capture_io(fn ->
+        capture_log(fn ->
           results =
             ReindexBenchmark.run(:implementations, :all,
               doc_count: 10,
@@ -71,7 +71,7 @@ defmodule TdCore.Search.ReindexBenchmarkTest do
       end
 
       output =
-        capture_io(fn ->
+        capture_log(fn ->
           [metrics] =
             ReindexBenchmark.run(:structures, [1],
               doc_count: 1,
