@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] 
+
+### Changed
+
+- [TD-8352] `TdCore.Search.ReindexBenchmark` writes results with `Logger`
+  instead of `IO.puts`
+
+## [8.10.0] 2026-08-07
+
+### Changed
+
+- [TD-8284] Update td-cluster lib
+
 ## [8.9.1] 2026-08-20
 
 ### Changed
