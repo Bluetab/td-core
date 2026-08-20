@@ -14,10 +14,13 @@ defmodule TdCore.Search.ReindexBenchmark do
   * `:profile_interval_ms` — sampler interval (default `500`)
   * `:env_banner_fn` — zero-arity callback returning a keyword list of
     extra banner lines (`[{label, value}, ...]`)
-  * `:info_fn` — one-arity callback for output (default `IO.puts/1`)
+  * `:info_fn` — one-arity callback for output (default `Logger.info/1`,
+    so results survive an IEx disconnect)
   * `:reindex_fn` — two-arity `(index, target) -> result` (default
     `Indexer.reindex/2`, overridable in tests)
   """
+
+  require Logger
 
   alias TdCore.Search.Cluster
   alias TdCore.Search.Indexer
@@ -26,7 +29,7 @@ defmodule TdCore.Search.ReindexBenchmark do
   @default_profile_interval_ms 500
 
   @doc """
-  Runs one or more timed `reindex` calls and prints banner + metrics.
+  Runs one or more timed `reindex` calls and logs banner + metrics.
   Returns the list of per-run metric maps.
   """
   def run(index, target, opts \\ []) when is_atom(index) do
@@ -36,7 +39,7 @@ defmodule TdCore.Search.ReindexBenchmark do
     repeat = Keyword.get(opts, :repeat, 1)
     profile? = Keyword.get(opts, :profile, false)
     profile_interval_ms = Keyword.get(opts, :profile_interval_ms, @default_profile_interval_ms)
-    info = Keyword.get(opts, :info_fn, &IO.puts/1)
+    info = Keyword.get(opts, :info_fn, &log_info/1)
     env_banner_fn = Keyword.get(opts, :env_banner_fn)
     reindex_fn = Keyword.get(opts, :reindex_fn, &Indexer.reindex/2)
 
@@ -52,6 +55,8 @@ defmodule TdCore.Search.ReindexBenchmark do
 
     results
   end
+
+  defp log_info(message), do: Logger.info(message)
 
   defp ensure_runtime_tools! do
     {:ok, _} = Application.ensure_all_started(:runtime_tools)
