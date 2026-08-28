@@ -1,5 +1,9 @@
 # Changelog
 
+## [8.11.0] 2026-08-28
+
+- [TD-7599] Improve audit messages for implementation and rule events
+
 ## [8.10.1] 2026-08-20
 
 ### Changed
