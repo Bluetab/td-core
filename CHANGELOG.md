@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-8426] Update td-cache lib
+
 ## [8.11.0] 2026-08-28
 
 - [TD-7599] Improve audit messages for implementation and rule events
