@@ -1,12 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [8.11.2] 2026-09-14
 
 ### Added
 
 - [TD-8344] Added function to convert Excel CRLF and CR line endings to LF.
 
-## [8.11.1] 2026-09-29
+## [8.11.1] 2026-09-09
 
 ### Changed
 
