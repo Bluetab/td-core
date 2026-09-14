@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8344] Added function to convert Excel CRLF and CR line endings to LF.
+
 ## [8.11.1] 2026-09-29
 
 ### Changed
@@ -7,6 +13,8 @@
 - [TD-8426] Update td-cache lib
 
 ## [8.11.0] 2026-08-28
+
+### Changed
 
 - [TD-7599] Improve audit messages for implementation and rule events
 

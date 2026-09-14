@@ -12,6 +12,7 @@ defmodule TdCore.XLSX.Reader do
   ## Functions
 
   - `read/1` - Reads and processes an XLSX file, returning parsed data.
+  - `normalize_line_endings/1` - Converts Excel CRLF/CR line endings to LF.
   """
 
   def read(path) do
@@ -33,9 +34,25 @@ defmodule TdCore.XLSX.Reader do
     end
   end
 
+  @doc """
+  Converts Excel CRLF (`\\r\\n`) and CR (`\\r`) line endings to LF (`\\n`).
+
+  Excel stores multiline cells as CRLF, while Truedat stores LF. Without this
+  conversion, re-uploading an unchanged download would mark markdown/textarea
+  fields as updated.
+  """
+  def normalize_line_endings(value) when is_binary(value) do
+    value
+    |> String.replace("\r\n", "\n")
+    |> String.replace("\r", "\n")
+  end
+
+  def normalize_line_endings(value), do: value
+
   defp parse_sheet(sheet, package) do
     case XlsxReader.sheet(package, sheet, number_type: String) do
       {:ok, [headers | content]} ->
+        headers = Enum.map(headers, &normalize_line_endings/1)
         headers_len = length(headers)
 
         sheet_data =
@@ -51,6 +68,7 @@ defmodule TdCore.XLSX.Reader do
   end
 
   defp create_row(row, headers_len) do
+    row = Enum.map(row, &normalize_line_endings/1)
     row ++ List.duplicate(nil, max(0, headers_len - length(row)))
   end
 
