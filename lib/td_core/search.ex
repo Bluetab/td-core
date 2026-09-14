@@ -78,6 +78,11 @@ defmodule TdCore.Search do
     {:error, error}
   end
 
+  defp format_response({:error, error}, _) do
+    Logger.warning("Error response from Elasticsearch: #{inspect(error)}")
+    {:error, error}
+  end
+
   defp format_response(%{"aggregations" => aggs}, :aggs) do
     format_aggregations(aggs)
   end
