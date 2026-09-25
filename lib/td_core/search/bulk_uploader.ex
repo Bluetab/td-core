@@ -17,6 +17,11 @@ defmodule TdCore.Search.BulkUploader do
   Consumes `store.stream/1` inside `store.transaction/1`, matching
   `Elasticsearch.Index.Bulk.upload/4`, so stores that use `Repo.stream/1`
   (e.g. implementations) stay inside a DB transaction.
+
+  An index with `stream_in_transaction: false` reads outside that
+  transaction. Each page opens and closes its own query, so the connection
+  is free while a bulk page is posted. Deletes and `Repo.stream/1` sources
+  keep the default and stay inside the transaction.
   """
   @spec upload(Config.t(), String.t(), map(), list()) :: :ok | {:error, list()}
   def upload(_cluster, _index_name, %{sources: []}, []), do: :ok
@@ -35,7 +40,7 @@ defmodule TdCore.Search.BulkUploader do
     concurrency = index_config[:reindex_concurrency] || reindex_concurrency()
 
     errors =
-      store.transaction(fn ->
+      in_store_transaction(store, index_config, fn ->
         source
         |> store.stream()
         |> Stream.map(&Bulk.encode!(config, &1, index_name, action))
@@ -70,6 +75,14 @@ defmodule TdCore.Search.BulkUploader do
       {:ok, response} -> response
       {:exit, reason} -> {:error, reason}
     end)
+  end
+
+  defp in_store_transaction(store, index_config, fun) do
+    if index_config[:stream_in_transaction] == false do
+      fun.()
+    else
+      store.transaction(fun)
+    end
   end
 
   defp post_bulk_body(cluster, path, body) do

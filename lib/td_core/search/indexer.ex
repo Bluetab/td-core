@@ -38,7 +38,7 @@ defmodule TdCore.Search.Indexer do
     bulk_page_size = Cluster.setting(index, :bulk_page_size)
     concurrency = reindex_concurrency()
 
-    store.transaction(fn ->
+    run = fn ->
       alias_name
       |> schema_from_alias()
       |> store.stream(ids)
@@ -48,7 +48,13 @@ defmodule TdCore.Search.Indexer do
       |> BulkUploader.post_bulk_bodies(Cluster, "/#{alias_name}/_bulk", concurrency)
       |> Stream.map(&log_bulk_post(alias_name, &1, @action))
       |> Stream.run()
-    end)
+    end
+
+    if stream_in_transaction?(index) do
+      store.transaction(run)
+    else
+      run.()
+    end
   end
 
   def reindex(index, id), do: reindex(index, [id])
@@ -146,6 +152,10 @@ defmodule TdCore.Search.Indexer do
     end)
   end
 
+  defp stream_in_transaction?(index) do
+    Cluster.setting(index, :stream_in_transaction) != false
+  end
+
   defp store_from_alias(alias_name) do
     alias_atom = alias_to_atom(alias_name)
 
@@ -177,21 +187,41 @@ defmodule TdCore.Search.Indexer do
 
   def delete(index, {:store, structs}) do
     alias_name = Cluster.alias_name(index)
-
     store = store_from_alias(alias_name)
+    bulk_page_size = Cluster.setting(index, :bulk_page_size) || 500
 
     store.transaction(fn ->
       alias_name
       |> schema_from_alias()
       |> store.stream({:delete, structs})
-      |> Stream.map(&Elasticsearch.delete_document(Cluster, &1, alias_name))
+      |> Stream.map(&Elasticsearch.Document.id/1)
+      |> Stream.chunk_every(bulk_page_size)
+      |> Stream.map(&post_delete_bulk(alias_name, &1))
       |> Stream.run()
     end)
   end
 
-  def delete(index, ids) do
+  def delete(index, ids) when is_list(ids) do
     alias_name = Cluster.alias_name(index)
-    Enum.map(ids, &Elasticsearch.delete_document(Cluster, &1, alias_name))
+    bulk_page_size = Cluster.setting(index, :bulk_page_size) || 500
+
+    ids
+    |> Enum.chunk_every(bulk_page_size)
+    |> Enum.each(&post_delete_bulk(alias_name, &1))
+  end
+
+  defp post_delete_bulk(_alias_name, []), do: :ok
+
+  defp post_delete_bulk(alias_name, ids) do
+    body =
+      ids
+      |> Enum.map(fn id ->
+        Jason.encode!(%{delete: %{"_index" => alias_name, "_id" => to_string(id)}}) <> "\n"
+      end)
+      |> IO.iodata_to_binary()
+
+    response = Elasticsearch.post(Cluster, "/#{alias_name}/_bulk", body)
+    log_bulk_post(alias_name, response, "delete")
   end
 
   def refresh_links(index, ids) do

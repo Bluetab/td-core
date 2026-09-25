@@ -665,6 +665,39 @@ defmodule TdCore.Search.IndexerTest do
         assert :ok == Indexer.reindex(:test_alias, [12_619])
       end)
     end
+
+    test "reindex ids skips store.transaction when stream_in_transaction is false" do
+      alias Elasticsearch.Cluster.Config
+      alias TdCore.Search.BulkUploaderOptionalTxnStore
+
+      config = Config.get(Cluster)
+
+      updated =
+        put_in(
+          config,
+          [:indexes, :string_test_alias],
+          %{
+            store: BulkUploaderOptionalTxnStore,
+            sources: [TdCore.Search.BulkUploaderUploadDoc],
+            bulk_page_size: 1,
+            bulk_wait_interval: 0,
+            settings: %{},
+            stream_in_transaction: false
+          }
+        )
+
+      :sys.replace_state(Cluster, fn _ -> updated end)
+      GenServer.call(Cluster, :save_config)
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/string_test_alias/_bulk", _body, [] ->
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      capture_log(fn ->
+        assert :ok == Indexer.reindex(:test_alias, [12_619])
+      end)
+    end
   end
 
   describe "refresh error handling" do

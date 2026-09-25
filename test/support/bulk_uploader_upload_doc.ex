@@ -21,6 +21,44 @@ defmodule TdCore.Search.BulkUploaderUploadStore do
   def transaction(fun), do: fun.()
 end
 
+defmodule TdCore.Search.BulkUploaderOptionalTxnStore do
+  @moduledoc false
+
+  alias TdCore.Search.BulkUploaderUploadDoc
+
+  @txn_key :bulk_uploader_optional_txn
+
+  def stream(_source) do
+    Stream.map(1..2, fn id ->
+      if Process.get(@txn_key) do
+        raise "stream reduced inside transaction"
+      end
+
+      %BulkUploaderUploadDoc{id: id}
+    end)
+  end
+
+  def stream(_source, ids) when is_list(ids) do
+    Stream.map(ids, fn id ->
+      if Process.get(@txn_key) do
+        raise "stream reduced inside transaction"
+      end
+
+      %BulkUploaderUploadDoc{id: id}
+    end)
+  end
+
+  def transaction(fun) do
+    Process.put(@txn_key, true)
+
+    try do
+      fun.()
+    after
+      Process.delete(@txn_key)
+    end
+  end
+end
+
 defmodule TdCore.Search.BulkUploaderTxnRequiredStore do
   @moduledoc false
 

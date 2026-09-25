@@ -180,6 +180,7 @@ defmodule TdCore.Search.BulkUploaderTest do
   end
 
   describe "upload/4" do
+    alias TdCore.Search.BulkUploaderOptionalTxnStore
     alias TdCore.Search.BulkUploaderTxnRequiredStore
     alias TdCore.Search.BulkUploaderUploadDoc
     alias TdCore.Search.BulkUploaderUploadStore
@@ -273,6 +274,27 @@ defmodule TdCore.Search.BulkUploaderTest do
                    @upload_config,
                    "upload-idx",
                    index_config(BulkUploaderTxnRequiredStore, 1),
+                   []
+                 )
+      end)
+    end
+
+    test "reads outside store.transaction when stream_in_transaction is false" do
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        {:ok, %{"errors" => false, "items" => [], "took" => 1}}
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   Map.put(
+                     index_config(BulkUploaderOptionalTxnStore, 1),
+                     :stream_in_transaction,
+                     false
+                   ),
                    []
                  )
       end)
