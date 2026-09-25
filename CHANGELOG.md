@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8029] Update plug dependency
+
 ## [8.11.2] 2026-09-14
 
 ### Added
