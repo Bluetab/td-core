@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.12.0] 2026-09-29
+
+### Changed
+
+- [TD-8429] Update plug dependency (Vulnerabilities)
+
 ## [8.11.2] 2026-09-14
 
 ### Added
