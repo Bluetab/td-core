@@ -14,7 +14,7 @@ defmodule TdCore.Auth.Claims do
           jti: binary() | nil
         }
 
-  @derive {Jason.Encoder, only: [:user_id, :user_name]}
+  @derive {Jason.Encoder, only: [:user_id, :user_name, :role]}
   defstruct [:user_id, :user_name, :role, :jti, :exp]
 
   def coerce(claims) do
