@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8619] Bulk uploads retry pages on transport errors and HTTP 429/502/503/504,
+  resend documents rejected with 429 and accept version conflicts on retried creates.
+  Configurable with `bulk_max_retries` and `bulk_retry_base_ms`.
+
 ## [8.12.0] 2026-09-29
 
 ### Changed

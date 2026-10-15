@@ -297,4 +297,369 @@ defmodule TdCore.Search.BulkUploaderTest do
       reindex_concurrency: concurrency
     }
   end
+
+  describe "upload/4 retries" do
+    setup :with_bulk_retries
+
+    test "retries a page after a closed connection and returns :ok" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1),
+                   []
+                 )
+      end)
+    end
+
+    test "retries a page after an invalid_state error until it succeeds" do
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        {:error, %HTTPoison.Error{reason: :invalid_state}}
+      end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1),
+                   []
+                 )
+      end)
+    end
+
+    test "returns the transport error after exhausting retries" do
+      ElasticsearchMock
+      |> expect(:request, 4, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+
+      capture_log(fn ->
+        assert {:error, [%HTTPoison.Error{reason: :closed}]} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2),
+                   []
+                 )
+      end)
+    end
+
+    test "retries a page rejected with HTTP 429" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        {:error, rejected_exception()}
+      end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1),
+                   []
+                 )
+      end)
+    end
+
+    test "resends only the documents rejected with 429" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        rejected_page()
+      end)
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", body, [] ->
+        assert body =~ ~s("_id":2)
+        refute body =~ ~s("_id":1)
+        bulk_ok()
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2),
+                   []
+                 )
+      end)
+    end
+
+    test "treats version conflicts on a retry as created" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        version_conflicts("create")
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2, bulk_action: "create"),
+                   []
+                 )
+      end)
+    end
+
+    test "keeps a version conflict on the first attempt as an error" do
+      ElasticsearchMock
+      |> expect(:request, 1, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        version_conflicts("create")
+      end)
+
+      capture_log(fn ->
+        assert {:error, errors} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2, bulk_action: "create"),
+                   []
+                 )
+
+        assert length(errors) == 2
+        assert Enum.all?(errors, &match?(%Elasticsearch.Exception{}, &1))
+      end)
+    end
+
+    test "does not retry document errors" do
+      ElasticsearchMock
+      |> expect(:request, 1, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        document_error_page()
+      end)
+
+      capture_log(fn ->
+        assert {:error, [%Elasticsearch.Exception{}]} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2),
+                   []
+                 )
+      end)
+    end
+
+    test "logs a warning for each retry" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok(0)
+      end)
+
+      log =
+        capture_log(fn ->
+          assert :ok ==
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1),
+                     []
+                   )
+        end)
+
+      assert log =~ "upload-idx"
+      assert log =~ ":closed"
+      assert log =~ "upload-idx: bulk retry 1/3 after :closed"
+    end
+
+    test "retries with concurrency greater than 1" do
+      {:ok, attempts} = Agent.start_link(fn -> %{} end)
+
+      ElasticsearchMock
+      |> expect(:request, 4, fn _, :put, "/upload-idx/_bulk", body, [] ->
+        id = document_id(body)
+
+        count =
+          Agent.get_and_update(attempts, fn counts ->
+            count = Map.get(counts, id, 0) + 1
+            {count, Map.put(counts, id, count)}
+          end)
+
+        if count == 1 do
+          closed_error()
+        else
+          bulk_ok()
+        end
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(2),
+                   []
+                 )
+      end)
+    end
+  end
+
+  describe "post_bulk_bodies/4 retries" do
+    setup :with_bulk_retries
+
+    test "retries a body after a closed connection" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :post, "/idx/_bulk", "foo", [] ->
+        closed_error()
+      end)
+      |> expect(:request, fn _, :post, "/idx/_bulk", "foo", [] ->
+        {:ok, %{"errors" => false}}
+      end)
+
+      capture_log(fn ->
+        results =
+          ["foo"]
+          |> BulkUploader.post_bulk_bodies(Cluster, "/idx/_bulk", 1)
+          |> Enum.to_list()
+
+        assert results == [{:ok, %{"errors" => false}}]
+      end)
+    end
+
+    test "returns the error after exhausting retries" do
+      ElasticsearchMock
+      |> expect(:request, 4, fn _, :post, "/idx/_bulk", "foo", [] ->
+        closed_error()
+      end)
+
+      capture_log(fn ->
+        results =
+          ["foo"]
+          |> BulkUploader.post_bulk_bodies(Cluster, "/idx/_bulk", 1)
+          |> Enum.to_list()
+
+        assert results == [{:error, %HTTPoison.Error{reason: :closed}}]
+      end)
+    end
+  end
+
+  defp with_bulk_retries(_context) do
+    previous = Application.get_env(:td_core, TdCore.Search.Cluster)
+
+    Application.put_env(
+      :td_core,
+      TdCore.Search.Cluster,
+      Keyword.merge(previous || [], bulk_max_retries: 3, bulk_retry_base_ms: 0)
+    )
+
+    on_exit(fn ->
+      if is_nil(previous) do
+        Application.delete_env(:td_core, TdCore.Search.Cluster)
+      else
+        Application.put_env(:td_core, TdCore.Search.Cluster, previous)
+      end
+    end)
+
+    :ok
+  end
+
+  defp retry_index_config(concurrency, opts \\ []) do
+    %{
+      store: TdCore.Search.BulkUploaderUploadStore,
+      sources: [TdCore.Search.BulkUploaderUploadDoc],
+      bulk_page_size: Keyword.get(opts, :bulk_page_size, 1),
+      bulk_wait_interval: 0,
+      bulk_action: Keyword.get(opts, :bulk_action, "index"),
+      reindex_concurrency: concurrency
+    }
+  end
+
+  defp bulk_ok(took \\ 1) do
+    {:ok, %{"errors" => false, "items" => [], "took" => took}}
+  end
+
+  defp closed_error, do: {:error, %HTTPoison.Error{reason: :closed}}
+
+  defp rejected_exception do
+    Elasticsearch.Exception.exception(
+      response: %{
+        "status" => 429,
+        "error" => %{"type" => "es_rejected_execution_exception"}
+      }
+    )
+  end
+
+  defp rejected_page do
+    {:ok,
+     %{
+       "errors" => true,
+       "items" => [
+         %{"index" => %{"_id" => "1", "status" => 201}},
+         %{
+           "index" => %{
+             "_id" => "2",
+             "status" => 429,
+             "error" => %{"type" => "es_rejected_execution_exception"}
+           }
+         }
+       ]
+     }}
+  end
+
+  defp version_conflicts(action) do
+    {:ok,
+     %{
+       "errors" => true,
+       "items" => [
+         %{
+           action => %{
+             "_id" => "1",
+             "status" => 409,
+             "error" => %{"type" => "version_conflict_engine_exception"}
+           }
+         },
+         %{
+           action => %{
+             "_id" => "2",
+             "status" => 409,
+             "error" => %{"type" => "version_conflict_engine_exception"}
+           }
+         }
+       ]
+     }}
+  end
+
+  defp document_error_page do
+    {:ok,
+     %{
+       "errors" => true,
+       "items" => [
+         %{"index" => %{"_id" => "1", "status" => 201}},
+         %{
+           "index" => %{
+             "_id" => "2",
+             "status" => 400,
+             "error" => %{"reason" => "foo", "type" => "mapper_parsing_exception"}
+           }
+         }
+       ]
+     }}
+  end
+
+  defp document_id(body) do
+    cond do
+      String.contains?(body, ~s("_id":1)) -> 1
+      String.contains?(body, ~s("_id":2)) -> 2
+    end
+  end
 end
