@@ -662,4 +662,210 @@ defmodule TdCore.Search.BulkUploaderTest do
       String.contains?(body, ~s("_id":2)) -> 2
     end
   end
+
+  defmodule OptionalTransactionStore do
+    @moduledoc false
+
+    alias TdCore.Search.BulkUploaderUploadDoc
+
+    def stream(_source) do
+      Stream.map(1..2, fn id -> %BulkUploaderUploadDoc{id: id} end)
+    end
+
+    def transaction(_fun), do: raise("transaction")
+  end
+
+  describe "upload/4 outside the store transaction" do
+    alias __MODULE__.OptionalTransactionStore
+
+    test "does not open the store transaction when stream_in_transaction is false" do
+      ElasticsearchMock
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   store_index_config(OptionalTransactionStore, stream_in_transaction: false),
+                   []
+                 )
+      end)
+    end
+
+    test "keeps the store transaction by default" do
+      assert_raise RuntimeError, "transaction", fn ->
+        BulkUploader.upload(
+          @upload_config,
+          "upload-idx",
+          store_index_config(OptionalTransactionStore),
+          []
+        )
+      end
+    end
+  end
+
+  defp store_index_config(store, opts \\ []) do
+    %{
+      store: store,
+      sources: [TdCore.Search.BulkUploaderUploadDoc],
+      bulk_page_size: Keyword.get(opts, :bulk_page_size, 1),
+      bulk_wait_interval: 0,
+      bulk_action: "index",
+      reindex_concurrency: Keyword.get(opts, :concurrency, 1)
+    }
+    |> maybe_put_opt(:stream_in_transaction, opts)
+  end
+
+  defp maybe_put_opt(config, key, opts) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} -> Map.put(config, key, value)
+      :error -> config
+    end
+  end
+
+  describe "bulk upload logs" do
+    setup :with_bulk_retries
+
+    test "logs when a retried page succeeds" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      log =
+        capture_log(fn ->
+          assert :ok ==
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1),
+                     []
+                   )
+        end)
+
+      assert log =~ "upload-idx: bulk page succeeded after 1 retries"
+    end
+
+    test "logs an error when retries are exhausted" do
+      ElasticsearchMock
+      |> expect(:request, 4, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+
+      log =
+        capture_log(fn ->
+          assert {:error, [%HTTPoison.Error{reason: :closed}]} =
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1, bulk_page_size: 2),
+                     []
+                   )
+        end)
+
+      assert log =~ "upload-idx: bulk page gave up after 3 retries: :closed"
+    end
+
+    test "logs a summary at the end of the upload" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+      |> expect(:request, 2, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      log =
+        capture_log(fn ->
+          assert :ok ==
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1),
+                     []
+                   )
+        end)
+
+      assert log =~
+               upload_summary(
+                 "2 pages, 1 retried (1 retries, 0 exhausted), 0 documents resent, 0 conflicts accepted"
+               )
+    end
+
+    test "logs the summary when the upload fails" do
+      ElasticsearchMock
+      |> expect(:request, 4, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+
+      log =
+        capture_log(fn ->
+          assert {:error, [%HTTPoison.Error{reason: :closed}]} =
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1, bulk_page_size: 2),
+                     []
+                   )
+        end)
+
+      assert log =~ "1 pages, 1 retried (3 retries, 1 exhausted)"
+    end
+
+    test "logs resent documents and accepted conflicts in the summary" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        rejected_page()
+      end)
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", body, [] ->
+        assert body =~ ~s("_id":2)
+        refute body =~ ~s("_id":1)
+        bulk_ok()
+      end)
+
+      resent_log =
+        capture_log(fn ->
+          assert :ok ==
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1, bulk_page_size: 2),
+                     []
+                   )
+        end)
+
+      assert resent_log =~ "1 documents resent"
+
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        closed_error()
+      end)
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        version_conflicts("create")
+      end)
+
+      conflict_log =
+        capture_log(fn ->
+          assert :ok ==
+                   BulkUploader.upload(
+                     @upload_config,
+                     "upload-idx",
+                     retry_index_config(1, bulk_page_size: 2, bulk_action: "create"),
+                     []
+                   )
+        end)
+
+      assert conflict_log =~ "2 conflicts accepted"
+    end
+  end
+
+  defp upload_summary(stats) do
+    "upload-idx: bulk upload finished: #{stats}"
+  end
 end
