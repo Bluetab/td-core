@@ -4,12 +4,7 @@
 
 ### Added
 
-- [TD-8619] Bulk uploads retry pages on transport errors and HTTP 429/502/503/504,
-  resend documents rejected with 429 and accept version conflicts on retried creates.
-  Configurable with `bulk_max_retries` and `bulk_retry_base_ms`.
-- [TD-8619] Bulk uploads can skip the store transaction with
-  `stream_in_transaction: false`. Retries log when a page recovers or gives up,
-  and every upload ends with a summary of retries, resent documents and conflicts.
+- [TD-8619] Bulk uploads retry failed pages, can skip the store transaction, and fail if the stream exits or the response is short.
 
 ## [8.12.0] 2026-09-29
 

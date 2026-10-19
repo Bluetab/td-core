@@ -48,15 +48,21 @@ defmodule TdCore.Search.BulkUploader do
     retry = bulk_retry_config()
 
     {errors, stats} =
-      in_store_transaction(store, index_config, fn ->
-        source
-        |> store.stream()
-        |> Stream.map(&Bulk.encode!(config, &1, index_name, action))
-        |> Stream.chunk_every(bulk_page_size)
-        |> Stream.intersperse(bulk_wait_interval)
-        |> post_bulk_pages(config, index_name, concurrency, action, retry)
-        |> reduce_bulk_responses(errors, index_name, action)
-      end)
+      try do
+        in_store_transaction(store, index_config, fn ->
+          source
+          |> store.stream()
+          |> Stream.map(&Bulk.encode!(config, &1, index_name, action))
+          |> Stream.chunk_every(bulk_page_size)
+          |> Stream.intersperse(bulk_wait_interval)
+          |> post_bulk_pages(config, index_name, concurrency, action, retry)
+          |> reduce_bulk_responses(errors, index_name, action)
+        end)
+      catch
+        :exit, reason ->
+          Logger.error("#{index_name}: bulk upload failed: #{inspect(reason)}")
+          {[reason | errors], empty_stats()}
+      end
 
     log_upload_summary(index_name, stats)
     upload(config, index_name, %{index_config | sources: tail}, errors)
@@ -194,10 +200,14 @@ defmodule TdCore.Search.BulkUploader do
     |> finish_page(ctx)
   end
 
-  defp dispatch_page({:ok, %{"errors" => true, "items" => _} = body}, ctx, used, state) do
-    state
-    |> apply_item_errors(body, ctx.action)
-    |> continue_rejected(ctx, used)
+  defp dispatch_page({:ok, %{"errors" => true, "items" => items} = body}, ctx, used, state) do
+    if length(items) == length(state.pending) do
+      state
+      |> apply_item_errors(body, ctx.action)
+      |> continue_rejected(ctx, used)
+    else
+      page_result({:error, :incomplete_bulk_response}, state, ctx)
+    end
   end
 
   defp dispatch_page({:error, _} = response, ctx, used, state) do

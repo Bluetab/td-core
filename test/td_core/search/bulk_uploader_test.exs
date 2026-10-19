@@ -868,4 +868,95 @@ defmodule TdCore.Search.BulkUploaderTest do
   defp upload_summary(stats) do
     "upload-idx: bulk upload finished: #{stats}"
   end
+
+  describe "upload/4 when the stream or the bulk response is incomplete" do
+    alias __MODULE__.StreamExitOutsideTransactionStore
+    alias __MODULE__.StreamExitStore
+
+    test "returns an error when the store stream exits" do
+      capture_log(fn ->
+        assert {:error, errors} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   index_config(StreamExitStore, 1),
+                   []
+                 )
+
+        assert :foo in errors
+      end)
+    end
+
+    test "returns an error when the store stream exits outside the transaction" do
+      capture_log(fn ->
+        assert {:error, errors} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   store_index_config(StreamExitOutsideTransactionStore,
+                     stream_in_transaction: false
+                   ),
+                   []
+                 )
+
+        assert :foo in errors
+      end)
+    end
+
+    test "returns an error when a failed bulk response has fewer items than lines" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        {:ok, %{"errors" => true, "items" => [], "took" => 1}}
+      end)
+
+      capture_log(fn ->
+        assert {:error, errors} =
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2),
+                   []
+                 )
+
+        assert errors != []
+      end)
+    end
+
+    test "keeps a short successful bulk response as success" do
+      ElasticsearchMock
+      |> expect(:request, fn _, :put, "/upload-idx/_bulk", _body, [] ->
+        bulk_ok()
+      end)
+
+      capture_log(fn ->
+        assert :ok ==
+                 BulkUploader.upload(
+                   @upload_config,
+                   "upload-idx",
+                   retry_index_config(1, bulk_page_size: 2),
+                   []
+                 )
+      end)
+    end
+  end
+
+  defmodule StreamExitStore do
+    @moduledoc false
+
+    def stream(_source) do
+      Stream.map(1..1, fn _ -> exit(:foo) end)
+    end
+
+    def transaction(fun), do: fun.()
+  end
+
+  defmodule StreamExitOutsideTransactionStore do
+    @moduledoc false
+
+    def stream(_source) do
+      Stream.map(1..1, fn _ -> exit(:foo) end)
+    end
+
+    def transaction(_fun), do: raise(RuntimeError, "transaction")
+  end
 end
