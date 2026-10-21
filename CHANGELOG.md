@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8428] Update td-df-lib version
+
 ## [8.12.1] 2026-10-20
 
 ### Added
