@@ -6,6 +6,12 @@
 
 - [TD-8029] Update plug dependency
 
+## [8.12.1] 2026-10-20
+
+### Added
+
+- [TD-8619] Bulk uploads retry failed pages, can skip the store transaction, and fail if the stream exits or the response is short.
+
 ## [8.12.0] 2026-09-29
 
 ### Changed
