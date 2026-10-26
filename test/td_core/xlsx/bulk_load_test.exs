@@ -27,7 +27,11 @@ defmodule TdCore.XLSX.BulkLoadTest do
         3
       )
 
-      ctx = %{impl_for: %ConfigurableBulkLoadImpl{templates: %{"type_1" => nil}}, job_id: job_id, lang: "en"}
+      ctx = %{
+        impl_for: %ConfigurableBulkLoadImpl{templates: %{"type_1" => nil}},
+        job_id: job_id,
+        lang: "en"
+      }
 
       assert {:ok, result} = BulkLoad.bulk_load(sheets, ctx)
       assert result.error_count == 3
