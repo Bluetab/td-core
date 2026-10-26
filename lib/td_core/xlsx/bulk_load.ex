@@ -221,7 +221,9 @@ defmodule TdCore.XLSX.BulkLoad do
   end
 
   defp parse_templates(templates, lang) do
-    Enum.into(templates, %{}, fn {df_name, template} ->
+    templates
+    |> Enum.reject(fn {_df_name, template} -> is_nil(template) end)
+    |> Enum.into(%{}, fn {df_name, template} ->
       content_schema = Format.flatten_content_fields(template.content, lang)
       translations = Enum.into(content_schema, %{}, &{&1["definition"], &1["name"]})
 
