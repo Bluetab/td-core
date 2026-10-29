@@ -29,15 +29,16 @@ defmodule TdCore.MixProject do
     [
       {:plug, "~> 1.16.3"},
       {:jason, "~> 1.4.4"},
-      {:guardian, "~> 2.3.2"},
+      {:guardian, "~> 2.4.1"},
       {:mox, "~> 1.2", only: :test},
       {:elixlsx, "~> 0.6"},
       {:xlsx_reader, "~> 0.8.11"},
       {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git", tag: "8.8.0"},
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
       {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "8.11.0"},
-      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "8.11.1"},
-      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "8.13.1"}
+      {:td_cache,
+       git: "https://github.com/Bluetab/td-cache.git", branch: "feature/td-8573", override: true},
+      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", branch: "feature/td-8573"}
     ]
   end
 end
