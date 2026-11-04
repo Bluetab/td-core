@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [8.14.0] 2026-11-04
 
 - [TD-8573] Vulnerabilities
 
