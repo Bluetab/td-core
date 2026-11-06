@@ -14,3 +14,5 @@ config :td_core, :bulk_load_implementations, %{
 config :td_cluster, TdCluster.ClusterHandler, MockClusterHandler
 
 config :td_cache, redis_host: "redis", port: 6380
+
+if config_env() == :test, do: import_config("test.exs")
