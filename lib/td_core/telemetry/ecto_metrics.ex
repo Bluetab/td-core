@@ -29,7 +29,7 @@ defmodule TdCore.Telemetry.EctoMetrics do
 
   import Telemetry.Metrics
 
-  alias TdCore.Telemetry.Buckets
+  @buckets [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000, 30_000, 60_000]
 
   @duration_event [:td_core, :telemetry, :db, :operation_duration]
   @wait_event [:td_core, :telemetry, :db, :connection_wait]
@@ -49,7 +49,7 @@ defmodule TdCore.Telemetry.EctoMetrics do
           "Time the database spent on a query, in milliseconds. " <>
             "The standard defines this name in seconds. " <>
             "Ours is milliseconds and excludes decode time.",
-        reporter_options: [buckets: Buckets.request_like()]
+        reporter_options: [buckets: @buckets]
       ),
       distribution("db.client.connection.wait_time",
         event_name: @wait_event,
@@ -58,7 +58,7 @@ defmodule TdCore.Telemetry.EctoMetrics do
         description:
           "Time a query waited for a pool connection, in milliseconds. " <>
             "The standard defines this name in seconds. Ours is milliseconds.",
-        reporter_options: [buckets: Buckets.request_like()]
+        reporter_options: [buckets: @buckets]
       ),
       counter("truedat.db.client.operations",
         event_name: @operation_event,
