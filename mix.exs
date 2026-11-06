@@ -28,6 +28,9 @@ defmodule TdCore.MixProject do
   defp deps do
     [
       {:plug, "~> 1.16.3"},
+      # Only for TdCore.TestSupport.OtlpReceiver. Every service already lists it.
+      {:plug_cowboy, "~> 2.7", optional: true},
+      {:otel_metric_exporter, "== 0.4.4"},
       {:jason, "~> 1.4.4"},
       {:guardian, "~> 2.4.1"},
       {:mox, "~> 1.2", only: :test},
