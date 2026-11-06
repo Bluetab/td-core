@@ -1,5 +1,29 @@
 # Changelog
 
+## [8.15.0] 2026-11-05
+
+### Added
+
+- Observability slice 1 (tickets 23 to 25 of the observability spec):
+  - `TdCore.Telemetry.Exporter`, a child that exports metrics as OTLP protobuf
+    with gzip through `otel_metric_exporter` 0.4.4. It starts only when an
+    endpoint is set, from the `:endpoint` option, the `:td_core` application
+    config or `OTEL_EXPORTER_OTLP_ENDPOINT`, in that order. Telemetry never
+    takes a service down: an unsupported protocol, a bad `:metrics` option or an
+    exporter that fails to start leaves the service running with telemetry off
+    and a logged warning. A `summary` metric is never handed to the exporter,
+    and each one dropped is named in a warning. The `:setup` and `:teardown`
+    options attach and detach anything that must exist only while telemetry is
+    on.
+  - `TdCore.Telemetry.EctoMetrics`: `db.client.operation.duration`,
+    `db.client.connection.wait_time` (both distributions, in milliseconds) and
+    `truedat.db.client.operations` (counter by `truedat.outcome`, `success` or
+    `failure`), from a service's Ecto query event. `wiring/1` gives the
+    exporter everything it needs for a repo event.
+  - `TdCore.TestSupport.OtlpReceiver`, a stub OTLP/HTTP receiver for tests.
+- New dependencies: `otel_metric_exporter` 0.4.4 (pinned), and `plug_cowboy`
+  (optional, only for the receiver; every service already lists it).
+
 ## [8.14.0] 2026-11-04
 
 ### Fixed
