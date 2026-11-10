@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `TdCore.TestSupport.OtlpReceiver.respond_with(receiver, :hang)` makes the stub
+  accept a request and never answer it, for a Collector that is up but stuck.
+  Every recorded export now also carries the `status` it was answered with, the
+  `bytes` of the body on the wire and its `decoded_bytes` after gunzip, and each
+  decoded data point carries its `start_time_unix_nano` and `time_unix_nano`, so
+  a test can tell a repeated period from a new one. Observability ticket 28
+  (G1.9, G1.10).
+
 ## [8.16.0] 2026-11-10
 
 ### Changed

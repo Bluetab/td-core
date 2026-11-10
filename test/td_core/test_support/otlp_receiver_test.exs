@@ -72,6 +72,53 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
     end
   end
 
+  describe "the period of a data point" do
+    test "is decoded as start and end time, for numbers and for histograms", %{
+      receiver: receiver
+    } do
+      sum = %Metric{
+        name: "a.counter",
+        data:
+          {:sum,
+           %Sum{
+             data_points: [
+               %NumberDataPoint{
+                 start_time_unix_nano: 1_000,
+                 time_unix_nano: 2_000,
+                 value: {:as_int, 1}
+               }
+             ]
+           }}
+      }
+
+      histogram = %Metric{
+        name: "a.histogram",
+        data:
+          {:histogram,
+           %Histogram{
+             data_points: [
+               %HistogramDataPoint{
+                 start_time_unix_nano: 3_000,
+                 time_unix_nano: 4_000,
+                 count: 1,
+                 sum: 1.0,
+                 explicit_bounds: [5.0],
+                 bucket_counts: [1, 0]
+               }
+             ]
+           }}
+      }
+
+      assert 200 == post_metrics(receiver, request([], [sum, histogram]))
+
+      assert %{points: [%{start_time_unix_nano: 1_000, time_unix_nano: 2_000}]} =
+               OtlpReceiver.await_metric(receiver, "a.counter")
+
+      assert %{points: [%{start_time_unix_nano: 3_000, time_unix_nano: 4_000}]} =
+               OtlpReceiver.await_metric(receiver, "a.histogram")
+    end
+  end
+
   describe "a histogram payload" do
     test "is decoded with bucket bounds, bucket counts, count, sum and unit", %{
       receiver: receiver
@@ -239,6 +286,43 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
       assert 503 == post_metrics(receiver, request([{"service.name", "td-ai"}], []))
       assert %{metrics: []} = OtlpReceiver.await_export(receiver)
     end
+
+    test "records the status it answered with and the wire size of the body", %{
+      receiver: %{endpoint: endpoint} = receiver
+    } do
+      body = encode_body(request([{"service.name", "td-ai"}], []))
+
+      assert 200 == post_body(endpoint, body)
+
+      assert %{status: 200, bytes: bytes, decoded_bytes: decoded_bytes} =
+               OtlpReceiver.await_export(receiver)
+
+      assert bytes == byte_size(body)
+      assert decoded_bytes == byte_size(:zlib.gunzip(body))
+
+      :ok = OtlpReceiver.respond_with(receiver, 503)
+      assert 503 == post_body(endpoint, body)
+      assert %{status: 503, bytes: ^bytes} = OtlpReceiver.await_export(receiver)
+    end
+
+    test "with :hang accepts the request, records it and never replies", %{receiver: receiver} do
+      :ok = OtlpReceiver.respond_with(receiver, :hang)
+
+      assert {:error, :timeout} ==
+               post_metrics(receiver, request([{"service.name", "td-ai"}], []), timeout: 300)
+
+      assert %{metrics: [], status: :hang} = OtlpReceiver.await_export(receiver)
+    end
+
+    test "a hung request does not stop the receiver answering the next one", %{
+      receiver: receiver
+    } do
+      :ok = OtlpReceiver.respond_with(receiver, :hang)
+      assert {:error, :timeout} == post_metrics(receiver, request([], []), timeout: 200)
+
+      :ok = OtlpReceiver.respond_with(receiver, 200)
+      assert 200 == post_metrics(receiver, request([], []))
+    end
   end
 
   defp request(resource_attributes, metrics) do
@@ -255,23 +339,32 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
   defp kv({key, value}), do: kv(key, value)
   defp kv(key, value), do: %KeyValue{key: key, value: %AnyValue{value: {:string_value, value}}}
 
-  defp post_metrics(%{endpoint: endpoint}, request) do
-    body = request |> Protobuf.encode_to_iodata() |> IO.iodata_to_binary() |> :zlib.gzip()
-
-    post(endpoint <> "/v1/metrics", body, "application/x-protobuf", [
-      {~c"content-encoding", ~c"gzip"}
-    ])
+  defp post_metrics(%{endpoint: endpoint}, request, http_options \\ []) do
+    post_body(endpoint, encode_body(request), http_options)
   end
 
-  defp post(url, body, content_type, headers) do
-    {:ok, {{_, status, _}, _, _}} =
-      :httpc.request(
-        :post,
-        {String.to_charlist(url), headers, String.to_charlist(content_type), body},
-        [],
-        []
-      )
+  defp encode_body(request),
+    do: request |> Protobuf.encode_to_iodata() |> IO.iodata_to_binary() |> :zlib.gzip()
 
-    status
+  defp post_body(endpoint, body, http_options \\ []) do
+    post(
+      endpoint <> "/v1/metrics",
+      body,
+      "application/x-protobuf",
+      [{~c"content-encoding", ~c"gzip"}],
+      http_options
+    )
+  end
+
+  defp post(url, body, content_type, headers, http_options \\ []) do
+    case :httpc.request(
+           :post,
+           {String.to_charlist(url), headers, String.to_charlist(content_type), body},
+           http_options,
+           []
+         ) do
+      {:ok, {{_, status, _}, _, _}} -> status
+      {:error, reason} -> {:error, reason}
+    end
   end
 end

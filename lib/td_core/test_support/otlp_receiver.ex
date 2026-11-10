@@ -45,7 +45,14 @@ defmodule TdCore.TestSupport.OtlpReceiver do
   A request that is not protobuf, or whose body cannot be decoded, gets a
   `400`, so a misbehaving exporter fails a test instead of passing silently.
   Use `respond_with/2` to make the receiver answer with another status, for
-  example to simulate an outage.
+  example to simulate an outage, or with `:hang` to accept the request and
+  never answer it, for a Collector that is up but stuck.
+
+  Every export is recorded with the `status` it was answered with (`:hang` for
+  none), the `bytes` of the body as it came over the wire and its `decoded_bytes`
+  after gunzip, so a test can tell an acknowledged export from one the sender
+  will send again, and see how large a recovery request is on the wire and as a
+  receiver limit would count it.
   """
 
   alias OtelMetricExporter.Opentelemetry.Proto.Collector.Metrics.V1.ExportMetricsServiceRequest
@@ -64,6 +71,9 @@ defmodule TdCore.TestSupport.OtlpReceiver do
           path: String.t(),
           content_type: String.t() | nil,
           compression: :gzip | nil,
+          bytes: non_neg_integer(),
+          decoded_bytes: non_neg_integer(),
+          status: pos_integer() | :hang,
           metrics: [map()]
         }
 
@@ -158,11 +168,13 @@ defmodule TdCore.TestSupport.OtlpReceiver do
   end
 
   @doc """
-  Makes the receiver answer every following request with `status`.
-  Exports are still recorded.
+  Makes the receiver answer every following request with `status`, or, with
+  `:hang`, accept the request and never answer it (a Collector that is up but
+  stuck). The connection stays open until the sender gives up and closes it.
+  Exports are still recorded in both cases.
   """
-  @spec respond_with(receiver(), pos_integer()) :: :ok
-  def respond_with(%{agent: agent}, status) when is_integer(status) do
+  @spec respond_with(receiver(), pos_integer() | :hang) :: :ok
+  def respond_with(%{agent: agent}, status) when is_integer(status) or status == :hang do
     Agent.update(agent, &Map.put(&1, :status, status))
   end
 
@@ -235,12 +247,19 @@ defmodule TdCore.TestSupport.OtlpReceiver do
   defp number_point(point) do
     {_kind, value} = point.value || {nil, nil}
 
-    %{attributes: attributes(point.attributes), value: value}
+    %{
+      attributes: attributes(point.attributes),
+      value: value,
+      start_time_unix_nano: point.start_time_unix_nano,
+      time_unix_nano: point.time_unix_nano
+    }
   end
 
   defp histogram_point(point) do
     %{
       attributes: attributes(point.attributes),
+      start_time_unix_nano: point.start_time_unix_nano,
+      time_unix_nano: point.time_unix_nano,
       count: point.count,
       sum: point.sum,
       bounds: point.explicit_bounds,
@@ -280,25 +299,35 @@ defmodule TdCore.TestSupport.OtlpReceiver do
       with :ok <- check_content_type(content_type),
            {:ok, compression, body} <- decompress(conn, raw),
            {:ok, request} <- decode(body) do
+        status = OtlpReceiver.status(agent)
+
         OtlpReceiver.notify(agent, %{
           path: conn.request_path,
           content_type: content_type,
           compression: compression,
+          bytes: byte_size(raw),
+          decoded_bytes: byte_size(body),
+          status: status,
           metrics: OtlpReceiver.decode_metrics(request)
         })
 
-        conn
-        |> put_resp_content_type("application/x-protobuf")
-        |> send_resp(
-          OtlpReceiver.status(agent),
-          Protobuf.encode(%ExportMetricsServiceResponse{})
-        )
+        reply(conn, status)
       else
         {:error, message} -> send_resp(conn, 400, message)
       end
     end
 
     def call(conn, _opts), do: send_resp(conn, 404, "not found")
+
+    # The request process lives as long as the connection. Sleeping keeps the socket open and
+    # silent; Cowboy ends the process when the sender closes it.
+    defp reply(_conn, :hang), do: Process.sleep(:infinity)
+
+    defp reply(conn, status) do
+      conn
+      |> put_resp_content_type("application/x-protobuf")
+      |> send_resp(status, Protobuf.encode(%ExportMetricsServiceResponse{}))
+    end
 
     defp check_content_type("application/x-protobuf" <> _), do: :ok
 

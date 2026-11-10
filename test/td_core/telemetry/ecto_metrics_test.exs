@@ -77,7 +77,9 @@ defmodule TdCore.Telemetry.EctoMetricsTest do
       assert %{type: :sum, monotonic: true, points: points} =
                OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
 
-      assert Enum.sort_by(points, & &1.attributes["truedat.outcome"]) == [
+      assert points
+             |> Enum.map(&Map.take(&1, [:attributes, :value]))
+             |> Enum.sort_by(& &1.attributes["truedat.outcome"]) == [
                %{attributes: %{"truedat.outcome" => "failure"}, value: 1},
                %{attributes: %{"truedat.outcome" => "success"}, value: 2}
              ]
