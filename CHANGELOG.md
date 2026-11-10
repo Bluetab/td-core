@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.16.0] 2026-11-10
+
+### Changed
+
+- Widen the `plug` range from `~> 1.16.3` to `>= 1.16.3 and < 2.0.0`, so
+  `td-i18n`, `td-df`, `td-audit` and `td-auth` (locked on `plug` 1.19.2 to
+  1.20.3) can take `td_core` without a `plug` override, and `td-ai` can drop
+  its own. Observability ticket 33, which closes decision D9. The floor is
+  unchanged, so a service locked on 1.16.3 or later still resolves. A service
+  that re-resolves `td_core` takes the newest `plug` the range allows, up to
+  below 2.0.0.
+
 ## [8.15.0] 2026-11-05
 
 ### Added

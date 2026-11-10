@@ -4,7 +4,7 @@ defmodule TdCore.MixProject do
   def project do
     [
       app: :td_core,
-      version: "8.15.0",
+      version: "8.16.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -27,7 +27,7 @@ defmodule TdCore.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:plug, "~> 1.16.3"},
+      {:plug, ">= 1.16.3 and < 2.0.0"},
       # Only for TdCore.TestSupport.OtlpReceiver. Every service already lists it.
       {:plug_cowboy, "~> 2.7", optional: true},
       {:otel_metric_exporter, "== 0.4.4"},
