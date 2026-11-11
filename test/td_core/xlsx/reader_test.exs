@@ -285,5 +285,81 @@ defmodule TdCore.XLSX.ReaderTest do
       # Clean up
       File.rm_rf(target_dir)
     end
+
+    test "restricts the moved file to owner read/write (0600)" do
+      tmp = Path.join(System.tmp_dir!(), "td_core_move_68")
+      source_dir = Path.join(tmp, "src")
+      target_dir = Path.join(tmp, "dst")
+      File.mkdir_p!(source_dir)
+      source = Path.join(source_dir, "upload.xlsx")
+      File.write!(source, "synthetic")
+      File.chmod!(source, 0o644)
+
+      on_exit(fn -> File.rm_rf(tmp) end)
+
+      target = Reader.move_file!(source, target_dir)
+
+      assert target == Path.join(target_dir, "upload.xlsx")
+      assert %File.Stat{mode: mode} = File.stat!(target)
+      assert Bitwise.band(mode, 0o777) == 0o600
+    end
+
+    test "restricts the file to 0600 before moving it" do
+      tmp = Path.join(System.tmp_dir!(), "td_core_move_pre_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      source = Path.join(tmp, "upload.xlsx")
+      File.write!(source, "synthetic")
+      File.chmod!(source, 0o644)
+
+      on_exit(fn -> File.rm_rf(tmp) end)
+
+      test_pid = self()
+
+      rename = fn from, to ->
+        send(test_pid, {:mode_before_rename, File.stat!(from).mode})
+        File.rename(from, to)
+      end
+
+      Reader.move_file!(source, Path.join(tmp, "dst"), rename)
+
+      assert_received {:mode_before_rename, mode}
+      assert Bitwise.band(mode, 0o777) == 0o600
+    end
+
+    test "falls back to copy and remove when rename fails with :exdev" do
+      tmp =
+        Path.join(System.tmp_dir!(), "td_core_move_exdev_#{System.unique_integer([:positive])}")
+
+      source_dir = Path.join(tmp, "src")
+      target_dir = Path.join(tmp, "dst")
+      File.mkdir_p!(source_dir)
+      source = Path.join(source_dir, "upload.xlsx")
+      File.write!(source, "synthetic")
+      File.chmod!(source, 0o644)
+
+      on_exit(fn -> File.rm_rf(tmp) end)
+
+      target = Reader.move_file!(source, target_dir, fn _, _ -> {:error, :exdev} end)
+
+      assert target == Path.join(target_dir, "upload.xlsx")
+      assert File.read!(target) == "synthetic"
+      refute File.exists?(source)
+      assert %File.Stat{mode: mode} = File.stat!(target)
+      assert Bitwise.band(mode, 0o777) == 0o600
+    end
+
+    test "raises on rename errors other than :exdev" do
+      tmp = Path.join(System.tmp_dir!(), "td_core_move_err_#{System.unique_integer([:positive])}")
+      on_exit(fn -> File.rm_rf(tmp) end)
+
+      error =
+        assert_raise File.RenameError, fn ->
+          Reader.move_file!(Path.join(tmp, "missing.xlsx"), Path.join(tmp, "dst"), fn _, _ ->
+            {:error, :eacces}
+          end)
+        end
+
+      assert error.reason == :eacces
+    end
   end
 end

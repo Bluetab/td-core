@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-2524] Add a common XLSX flow for bulk uploads and downloads (upload, worker, download helpers and language resolution) with an optional batch phase for bulk loads.
+
 ## [8.13.1] 2026-10-26
 
 ### Added

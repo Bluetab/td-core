@@ -13,6 +13,7 @@ defmodule TdCore.XLSX.Reader do
 
   - `read/1` - Reads and processes an XLSX file, returning parsed data.
   - `normalize_line_endings/1` - Converts Excel CRLF/CR line endings to LF.
+  - `move_file!/2` - Moves an uploaded file into the upload directory with mode `0600`.
   """
 
   def read(path) do
@@ -72,11 +73,43 @@ defmodule TdCore.XLSX.Reader do
     row ++ List.duplicate(nil, max(0, headers_len - length(row)))
   end
 
-  def move_file!(path, upload_dir) do
+  def move_file!(path, upload_dir), do: move_file!(path, upload_dir, &File.rename/2)
+
+  @doc false
+  # `rename` is injectable so the cross-device fallback can be tested without
+  # mounting two volumes.
+  def move_file!(path, upload_dir, rename) do
     :ok = File.mkdir_p!(upload_dir)
     source_file_name = path |> Path.split() |> List.last()
     file_path = Path.join([upload_dir, source_file_name])
-    :ok = File.rename!(path, file_path)
+    # Restrict the file before it is moved, so that it is never readable by others
+    # in the upload directory. It is best effort (the source may not be ours); the
+    # final chmod guarantees the mode of the stored file.
+    _ = File.chmod(path, 0o600)
+    :ok = move!(path, file_path, rename)
+    File.chmod!(file_path, 0o600)
     file_path
+  end
+
+  # Plug's temporary file may live on another volume than the upload directory,
+  # in which case rename fails with :exdev. Fall back to copy + chmod + remove.
+  defp move!(source, target, rename) do
+    case rename.(source, target) do
+      :ok ->
+        :ok
+
+      {:error, :exdev} ->
+        File.cp!(source, target)
+        File.chmod!(target, 0o600)
+        File.rm!(source)
+        :ok
+
+      {:error, reason} ->
+        raise File.RenameError,
+          reason: reason,
+          action: "rename",
+          source: source,
+          destination: target
+    end
   end
 end
