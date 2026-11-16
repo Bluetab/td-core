@@ -16,6 +16,9 @@
   unsupported metric switches telemetry off with a warning, like any other bad
   option. The protocol is read from the environment only, and the `:protocol`,
   `:metrics_protocol` and `:id` options are gone.
+- `TdCore.Telemetry.Exporter` takes an `:env` option, the environment
+  variables to read, `System.get_env()` by default. Its tests pass an
+  environment instead of changing the process environment.
 - `TdCore.TestSupport.OtlpReceiver` compiles only when
   `config :td_core, :otlp_receiver, true` is set, so it no longer ships in
   releases. Its `:hang` mode, byte counts and data point timestamps are

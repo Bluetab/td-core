@@ -1,6 +1,7 @@
 defmodule TdCore.Telemetry.ExporterTest do
-  # The exporter keeps a global ETS table and a persistent_term key, and some tests set
-  # environment variables, so these tests cannot run concurrently.
+  # The exporter keeps a global ETS table and a persistent_term key, so these tests cannot
+  # run concurrently. They read the environment through the :env option and never change
+  # the process environment or the application config.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureLog
@@ -15,6 +16,11 @@ defmodule TdCore.Telemetry.ExporterTest do
   end
 
   describe "with the endpoint unset" do
+    test "the endpoint variable does not switch it on over the test config" do
+      env = %{"OTEL_EXPORTER_OTLP_ENDPOINT" => "http://127.0.0.1:1"}
+      assert {:ok, :undefined} = start_supervised({Exporter, metrics: [counter()], env: env})
+    end
+
     test "starts nothing and logs nothing" do
       log =
         capture_log(fn ->
@@ -44,18 +50,19 @@ defmodule TdCore.Telemetry.ExporterTest do
     end
 
     test "adds service.instance.id from POD_NAME to the resource", %{receiver: receiver} do
-      with_env(%{"POD_NAME" => "td-ai-7d9f-abc12", "OTEL_SERVICE_NAME" => "td-ai"}, fn ->
-        start_supervised!({Exporter, options(receiver)})
-        :telemetry.execute(@event, %{count: 1}, %{})
+      start_supervised!({Exporter, options(receiver, env: %{"POD_NAME" => "td-ai-7d9f-abc12"})})
+      :telemetry.execute(@event, %{count: 1}, %{})
 
-        assert %{
-                 resource: %{
-                   "service.instance.id" => "td-ai-7d9f-abc12",
-                   "service.name" => "td-ai"
-                 }
-               } =
-                 OtlpReceiver.await_metric(receiver, "td_core.test.event.count")
-      end)
+      assert %{resource: %{"service.instance.id" => "td-ai-7d9f-abc12"}} =
+               OtlpReceiver.await_metric(receiver, "td_core.test.event.count")
+    end
+
+    test "without POD_NAME the resource has no service.instance.id", %{receiver: receiver} do
+      start_supervised!({Exporter, options(receiver)})
+      :telemetry.execute(@event, %{count: 1}, %{})
+
+      %{resource: resource} = OtlpReceiver.await_metric(receiver, "td_core.test.event.count")
+      refute Map.has_key?(resource, "service.instance.id")
     end
 
     test "runs the attach steps once the exporter is up", %{receiver: receiver} do
@@ -70,9 +77,7 @@ defmodule TdCore.Telemetry.ExporterTest do
   describe "telemetry never takes the service down" do
     test "an unsupported protocol switches telemetry off with a warning", %{receiver: receiver} do
       for var <- ["OTEL_EXPORTER_OTLP_PROTOCOL", "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL"] do
-        with_env(%{var => "grpc"}, fn ->
-          assert_off(options(receiver), "#{var} must be http/protobuf")
-        end)
+        assert_off(options(receiver, env: %{var => "grpc"}), "#{var} must be http/protobuf")
       end
     end
 
@@ -127,20 +132,9 @@ defmodule TdCore.Telemetry.ExporterTest do
     assert Process.whereis(:otel_metric_exporter) == nil
   end
 
-  defp with_env(vars, fun) do
-    previous = Map.new(vars, fn {k, _} -> {k, System.get_env(k)} end)
-    System.put_env(vars)
-
-    try do
-      fun.()
-    after
-      for {k, v} <- previous, do: if(v, do: System.put_env(k, v), else: System.delete_env(k))
-    end
-  end
-
   defp options(receiver, overrides \\ []) do
     Keyword.merge(
-      [metrics: [counter()], endpoint: receiver.endpoint, export_period: 100],
+      [metrics: [counter()], endpoint: receiver.endpoint, export_period: 100, env: %{}],
       overrides
     )
   end

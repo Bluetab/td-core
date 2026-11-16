@@ -31,6 +31,9 @@ defmodule TdCore.Telemetry.Exporter do
     * `:export_period` - milliseconds between exports. One minute by default.
     * `:resource` - resource attributes to use instead of `POD_NAME`.
     * `:endpoint` - see above.
+    * `:env` - the environment variables to read, as a map. `System.get_env()`
+      by default. `otel_metric_exporter` still reads its own variables from the
+      process environment.
   """
 
   require Logger
@@ -49,15 +52,17 @@ defmodule TdCore.Telemetry.Exporter do
 
   @doc false
   def start_link(opts) do
-    case endpoint(opts) do
+    env = Keyword.get_lazy(opts, :env, &System.get_env/0)
+
+    case endpoint(opts, env) do
       blank when blank in [nil, ""] -> :ignore
-      endpoint -> start(endpoint, opts)
+      endpoint -> start(endpoint, env, opts)
     end
   end
 
-  defp start(endpoint, opts) do
-    with :ok <- check_protocol(),
-         {:ok, pid} <- OtelMetricExporter.start_link(exporter_opts(endpoint, opts)) do
+  defp start(endpoint, env, opts) do
+    with :ok <- check_protocol(env),
+         {:ok, pid} <- OtelMetricExporter.start_link(exporter_opts(endpoint, env, opts)) do
       attach(pid, Keyword.get(opts, :attach, []))
     else
       {:error, reason} -> off(reason)
@@ -68,22 +73,22 @@ defmodule TdCore.Telemetry.Exporter do
     :exit, reason -> off(reason)
   end
 
-  defp endpoint(opts) do
+  defp endpoint(opts, env) do
     Keyword.get_lazy(opts, :endpoint, fn ->
       :td_core
       |> Application.get_env(__MODULE__, [])
-      |> Keyword.get_lazy(:endpoint, fn -> System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") end)
+      |> Keyword.get_lazy(:endpoint, fn -> env["OTEL_EXPORTER_OTLP_ENDPOINT"] end)
     end)
   end
 
-  defp check_protocol do
-    case Enum.find(@protocol_vars, &(System.get_env(&1) not in [nil, "http/protobuf"])) do
+  defp check_protocol(env) do
+    case Enum.find(@protocol_vars, &(env[&1] not in [nil, "http/protobuf"])) do
       nil -> :ok
       var -> {:error, "#{var} must be http/protobuf"}
     end
   end
 
-  defp exporter_opts(endpoint, opts) do
+  defp exporter_opts(endpoint, env, opts) do
     [
       metrics: Keyword.get(opts, :metrics),
       export_period: Keyword.get(opts, :export_period, :timer.minutes(1)),
@@ -91,12 +96,12 @@ defmodule TdCore.Telemetry.Exporter do
       otlp_endpoint: String.trim_trailing(endpoint, "/"),
       otlp_protocol: :http_protobuf,
       otlp_compression: :gzip,
-      resource: Keyword.get_lazy(opts, :resource, &pod_resource/0)
+      resource: Keyword.get_lazy(opts, :resource, fn -> pod_resource(env) end)
     ]
   end
 
-  defp pod_resource do
-    case System.get_env("POD_NAME") do
+  defp pod_resource(env) do
+    case env["POD_NAME"] do
       pod when pod in [nil, ""] -> %{}
       pod -> %{"service.instance.id" => pod}
     end
