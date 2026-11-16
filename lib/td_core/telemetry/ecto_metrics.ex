@@ -26,7 +26,9 @@ defmodule TdCore.Telemetry.EctoMetrics do
   listen to the repo event directly and the handler can go.
 
   Ecto also reports transaction control (`begin`, `commit`, `rollback`) as
-  queries. The handler drops those, so the metrics count statements only.
+  queries. Those are left out of the duration and the counter, so both count
+  statements only. The wait is kept: a transaction checks out its connection
+  on `begin`, so that is where its `queue_time` is reported.
 
   The handler compares the statement with those three words and copies
   nothing from the event but the measurements and the outcome. No SQL text,
@@ -97,9 +99,9 @@ defmodule TdCore.Telemetry.EctoMetrics do
   end
 
   @doc false
-  def handle_query(_event, _measurements, %{query: query}, _config)
+  def handle_query(_event, measurements, %{query: query}, _config)
       when query in @transaction_control,
-      do: :ok
+      do: emit(@wait_event, :wait_time, measurements[:queue_time])
 
   def handle_query(_event, measurements, metadata, _config) do
     emit(@duration_event, :duration, measurements[:query_time])

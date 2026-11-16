@@ -8,7 +8,9 @@
   query event from its `:telemetry_prefix`. The `:setup` and `:teardown`
   options of `TdCore.Telemetry.Exporter` are replaced by `:attach`.
 - `TdCore.Telemetry.EctoMetrics` no longer counts transaction control
-  (`begin`, `commit`, `rollback`) as queries, and both distributions gain 1 ms
+  (`begin`, `commit`, `rollback`) as queries in the duration and the counter.
+  Their `queue_time` still feeds the wait, because a transaction checks out
+  its connection on `begin`. Both distributions gain 1 ms
   and 2 ms buckets.
 - `TdCore.Telemetry.Exporter` no longer drops `summary` metrics one by one: an
   unsupported metric switches telemetry off with a warning, like any other bad

@@ -73,16 +73,24 @@ defmodule TdCore.Telemetry.EctoMetricsTest do
     assert [_handler] = :telemetry.list_handlers(@event)
   end
 
-  test "transaction control is not counted as a query", %{receiver: receiver} do
+  test "transaction control is left out of the duration and the counter, not the wait", %{
+    receiver: receiver
+  } do
     start_exporter(receiver)
 
-    for statement <- ["begin", "commit", "rollback"],
-        do: query(%{query_time: 1}, %{query: statement})
-
-    query(%{query_time: 1}, %{query: "SELECT 1"})
+    query(%{query_time: 1, queue_time: native_us(3_000)}, %{query: "begin"})
+    query(%{query_time: native_us(4_000)}, %{query: "SELECT 1"})
+    query(%{query_time: 1}, %{query: "commit"})
+    query(%{query_time: 1}, %{query: "rollback"})
 
     assert %{points: [%{value: 1}]} =
              OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
+
+    assert %{points: [%{count: 1, sum: 4.0}]} =
+             OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
+
+    assert %{points: [%{count: 1, sum: 3.0}]} =
+             OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
   end
 
   test "no SQL text, parameter or table reaches the export, and no label but the outcome", %{
