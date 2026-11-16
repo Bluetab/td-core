@@ -1,13 +1,7 @@
 import Config
 
-config :td_core, TdCore.Telemetry.Exporter,
-  endpoint: nil,
-  protocol: "http/protobuf",
-  metrics_protocol: nil,
-  resource: %{
-    "service.name" => "td-ai",
-    "service.namespace" => "truedat",
-    "service.version" => "8.14.0",
-    "service.instance.id" => "td-ai-7d9f-abc12",
-    "deployment.environment.name" => "test"
-  }
+# Telemetry is off in tests whatever OTEL_* variables the shell holds. A test that needs it
+# passes the stub receiver's endpoint itself.
+config :td_core, TdCore.Telemetry.Exporter, endpoint: nil
+
+config :td_core, :otlp_receiver, true

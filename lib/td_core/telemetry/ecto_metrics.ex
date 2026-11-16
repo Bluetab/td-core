@@ -1,44 +1,48 @@
 defmodule TdCore.Telemetry.EctoMetrics do
   @moduledoc """
-  Database metrics shared by every Postgres-backed service, taken from the Ecto
-  query event.
+  Database metrics for a Postgres-backed service, from its repo's Ecto query
+  event:
 
-  A service gives `wiring/1` its own repo event and passes the result to
-  `TdCore.Telemetry.Exporter`, so the handler exists only when telemetry is on
-  and is detached again if the exporter is switched off after it was attached:
+    * `db.client.operation.duration`: `query_time`, in milliseconds. It
+      excludes queue and decode time.
+    * `db.client.connection.wait_time`: `queue_time`, in milliseconds.
+    * `truedat.db.client.operations`: queries by `truedat.outcome`, `success`
+      or `failure`.
 
-      {TdCore.Telemetry.Exporter, TdCore.Telemetry.EctoMetrics.wiring([:td_ai, :repo, :query])}
+  `wiring/1` gives `TdCore.Telemetry.Exporter` the metrics and the step that
+  attaches the handler, so the handler exists only while telemetry is on:
 
-  A service that has more metrics concatenates the `:metrics`, `:setup` and
-  `:teardown` lists of each `wiring/1`, and keeps all of them in one place
-  (EXP-7).
+      {TdCore.Telemetry.Exporter, TdCore.Telemetry.EctoMetrics.wiring(MyApp.Repo)}
 
   ## Why a handler sits between Ecto and the metrics
 
-  Ecto leaves a measurement out of its event when it has no value: a query run
-  inside a transaction has no `queue_time`. A metric definition cannot skip such
-  an event, and the exporter crashes on the missing value, after which
-  `:telemetry` detaches its handler and every later query goes uncounted. So
-  `attach/1` re-emits one derived event per measurement that is present, and the
-  definitions listen to those.
+  Ecto's measurements are optional: a query inside a transaction has no
+  `queue_time`. `Telemetry.Metrics` returns `nil` for a missing measurement
+  and leaves skipping it to the reporter, but `otel_metric_exporter` 0.4.4
+  crashes on `nil`, after which `:telemetry` detaches its handler for good. The
+  exporter also calls `:keep` with the metadata only, so `:keep` cannot test
+  for the measurement either. The handler therefore re-emits one event per
+  measurement that is present. Once the exporter skips `nil`, the metrics can
+  listen to the repo event directly and the handler can go.
 
-  The handler copies only measurements and the outcome. It never reads `params`,
-  `cast_params`, `query` or `source` from the Ecto event (PRIV-5), so they cannot
-  reach a metric even by mistake.
+  Ecto also reports transaction control (`begin`, `commit`, `rollback`) as
+  queries. The handler drops those, so the metrics count statements only.
+
+  The handler compares the statement with those three words and copies
+  nothing from the event but the measurements and the outcome. No SQL text,
+  parameter or table name can reach a metric.
   """
 
   import Telemetry.Metrics
 
-  @buckets [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000, 30_000, 60_000]
+  @buckets [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000, 30_000, 60_000]
+  @transaction_control ["begin", "commit", "rollback"]
 
   @duration_event [:td_core, :telemetry, :db, :operation_duration]
   @wait_event [:td_core, :telemetry, :db, :connection_wait]
   @operation_event [:td_core, :telemetry, :db, :operation]
 
-  @doc """
-  The metric definitions. They depend on `Telemetry.Metrics` only, not on the
-  package that delivers them (EXP-6).
-  """
+  @doc "The metric definitions."
   def metrics do
     [
       distribution("db.client.operation.duration",
@@ -46,23 +50,18 @@ defmodule TdCore.Telemetry.EctoMetrics do
         measurement: :duration,
         unit: {:native, :millisecond},
         description:
-          "Time the database spent on a query, in milliseconds. " <>
-            "The standard defines this name in seconds. " <>
-            "Ours is milliseconds and excludes decode time.",
+          "Time the database spent on a query, in milliseconds, excluding decode time.",
         reporter_options: [buckets: @buckets]
       ),
       distribution("db.client.connection.wait_time",
         event_name: @wait_event,
         measurement: :wait_time,
         unit: {:native, :millisecond},
-        description:
-          "Time a query waited for a pool connection, in milliseconds. " <>
-            "The standard defines this name in seconds. Ours is milliseconds.",
+        description: "Time a query waited for a pool connection, in milliseconds.",
         reporter_options: [buckets: @buckets]
       ),
       counter("truedat.db.client.operations",
         event_name: @operation_event,
-        measurement: :count,
         tags: [:"truedat.outcome"],
         description: "Queries run, by outcome: success or failure."
       )
@@ -70,56 +69,49 @@ defmodule TdCore.Telemetry.EctoMetrics do
   end
 
   @doc """
-  The options to give `TdCore.Telemetry.Exporter`: the metrics, the step that
-  attaches the handler to `event_prefix`, and the step that detaches it.
+  The options for `TdCore.Telemetry.Exporter`: the metrics, and the step that
+  attaches the handler to `repo`'s query event. The event follows Ecto's
+  `:telemetry_prefix`, so it stays right if the repo changes its prefix.
   """
-  @spec wiring([atom()]) :: [
-          metrics: [Telemetry.Metrics.t()],
-          setup: [mfa()],
-          teardown: [mfa()]
-        ]
-  def wiring(event_prefix) when is_list(event_prefix) do
-    [
-      metrics: metrics(),
-      setup: [{__MODULE__, :attach, [event_prefix]}],
-      teardown: [{__MODULE__, :detach, [event_prefix]}]
-    ]
+  @spec wiring(module()) :: [metrics: [Telemetry.Metrics.t()], attach: [mfa()]]
+  def wiring(repo) when is_atom(repo) do
+    [metrics: metrics(), attach: [{__MODULE__, :attach, [query_event(repo)]}]]
   end
 
-  @doc """
-  Attaches the handler to a repo's query event, such as `[:td_ai, :repo, :query]`.
-  Attaching twice for the same event is harmless.
-  """
-  @spec attach([atom()]) :: :ok
-  def attach(event_prefix) when is_list(event_prefix) do
-    _ =
-      :telemetry.attach(handler_id(event_prefix), event_prefix, &__MODULE__.handle_query/4, nil)
+  @doc "The repo's query event, `telemetry_prefix ++ [:query]`."
+  @spec query_event(module()) :: [atom()]
+  def query_event(repo), do: repo.config()[:telemetry_prefix] ++ [:query]
 
+  @doc "Attaches the handler to a query event. Attaching twice is harmless."
+  @spec attach([atom()]) :: :ok
+  def attach(event) do
+    _ = :telemetry.attach({__MODULE__, event}, event, &__MODULE__.handle_query/4, nil)
     :ok
   end
 
-  @doc "Detaches the handler for a repo's query event."
+  @doc "Detaches the handler from a query event."
   @spec detach([atom()]) :: :ok
-  def detach(event_prefix) when is_list(event_prefix) do
-    _ = :telemetry.detach(handler_id(event_prefix))
+  def detach(event) do
+    _ = :telemetry.detach({__MODULE__, event})
     :ok
   end
 
   @doc false
-  def handle_query(_event, measurements, metadata, _config) do
-    emit(@duration_event, :duration, Map.get(measurements, :query_time))
-    emit(@wait_event, :wait_time, Map.get(measurements, :queue_time))
+  def handle_query(_event, _measurements, %{query: query}, _config)
+      when query in @transaction_control,
+      do: :ok
 
-    :telemetry.execute(@operation_event, %{count: 1}, %{"truedat.outcome": outcome(metadata)})
+  def handle_query(_event, measurements, metadata, _config) do
+    emit(@duration_event, :duration, measurements[:query_time])
+    emit(@wait_event, :wait_time, measurements[:queue_time])
+    :telemetry.execute(@operation_event, %{}, %{"truedat.outcome": outcome(metadata)})
   end
 
   defp emit(event, key, value) when is_number(value),
     do: :telemetry.execute(event, %{key => value}, %{})
 
-  defp emit(_event, _key, _absent), do: :ok
+  defp emit(_event, _key, nil), do: :ok
 
   defp outcome(%{result: {:ok, _}}), do: "success"
-  defp outcome(_failed_or_unknown), do: "failure"
-
-  defp handler_id(event_prefix), do: {__MODULE__, event_prefix}
+  defp outcome(_metadata), do: "failure"
 end

@@ -2,15 +2,22 @@
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- `TdCore.TestSupport.OtlpReceiver.respond_with(receiver, :hang)` makes the stub
-  accept a request and never answer it, for a Collector that is up but stuck.
-  Every recorded export now also carries the `status` it was answered with, the
-  `bytes` of the body on the wire and its `decoded_bytes` after gunzip, and each
-  decoded data point carries its `start_time_unix_nano` and `time_unix_nano`, so
-  a test can tell a repeated period from a new one. Observability ticket 28
-  (G1.9, G1.10).
+- `TdCore.Telemetry.EctoMetrics.wiring/1` takes the repo module and reads the
+  query event from its `:telemetry_prefix`. The `:setup` and `:teardown`
+  options of `TdCore.Telemetry.Exporter` are replaced by `:attach`.
+- `TdCore.Telemetry.EctoMetrics` no longer counts transaction control
+  (`begin`, `commit`, `rollback`) as queries, and both distributions gain 1 ms
+  and 2 ms buckets.
+- `TdCore.Telemetry.Exporter` no longer drops `summary` metrics one by one: an
+  unsupported metric switches telemetry off with a warning, like any other bad
+  option. The protocol is read from the environment only, and the `:protocol`,
+  `:metrics_protocol` and `:id` options are gone.
+- `TdCore.TestSupport.OtlpReceiver` compiles only when
+  `config :td_core, :otlp_receiver, true` is set, so it no longer ships in
+  releases. Its `:hang` mode, byte counts and data point timestamps are
+  removed.
 
 ## [8.16.0] 2026-11-10
 

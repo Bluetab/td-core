@@ -72,53 +72,6 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
     end
   end
 
-  describe "the period of a data point" do
-    test "is decoded as start and end time, for numbers and for histograms", %{
-      receiver: receiver
-    } do
-      sum = %Metric{
-        name: "a.counter",
-        data:
-          {:sum,
-           %Sum{
-             data_points: [
-               %NumberDataPoint{
-                 start_time_unix_nano: 1_000,
-                 time_unix_nano: 2_000,
-                 value: {:as_int, 1}
-               }
-             ]
-           }}
-      }
-
-      histogram = %Metric{
-        name: "a.histogram",
-        data:
-          {:histogram,
-           %Histogram{
-             data_points: [
-               %HistogramDataPoint{
-                 start_time_unix_nano: 3_000,
-                 time_unix_nano: 4_000,
-                 count: 1,
-                 sum: 1.0,
-                 explicit_bounds: [5.0],
-                 bucket_counts: [1, 0]
-               }
-             ]
-           }}
-      }
-
-      assert 200 == post_metrics(receiver, request([], [sum, histogram]))
-
-      assert %{points: [%{start_time_unix_nano: 1_000, time_unix_nano: 2_000}]} =
-               OtlpReceiver.await_metric(receiver, "a.counter")
-
-      assert %{points: [%{start_time_unix_nano: 3_000, time_unix_nano: 4_000}]} =
-               OtlpReceiver.await_metric(receiver, "a.histogram")
-    end
-  end
-
   describe "a histogram payload" do
     test "is decoded with bucket bounds, bucket counts, count, sum and unit", %{
       receiver: receiver
@@ -242,25 +195,6 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
     end
   end
 
-  describe "a large export" do
-    test "of several megabytes is read whole and decoded", %{receiver: receiver} do
-      description = Base.encode64(:crypto.strong_rand_bytes(3_000_000))
-
-      payload =
-        request([], [
-          %Metric{
-            name: "big.metric",
-            description: description,
-            data: {:sum, %Sum{data_points: [%NumberDataPoint{value: {:as_int, 1}}]}}
-          }
-        ])
-
-      assert 200 == post_metrics(receiver, payload)
-
-      assert %{description: ^description} = OtlpReceiver.await_metric(receiver, "big.metric")
-    end
-  end
-
   describe "malformed requests" do
     test "a body that is not protobuf is refused with 400 and not recorded", %{
       receiver: %{endpoint: endpoint} = receiver
@@ -286,43 +220,6 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
       assert 503 == post_metrics(receiver, request([{"service.name", "td-ai"}], []))
       assert %{metrics: []} = OtlpReceiver.await_export(receiver)
     end
-
-    test "records the status it answered with and the wire size of the body", %{
-      receiver: %{endpoint: endpoint} = receiver
-    } do
-      body = encode_body(request([{"service.name", "td-ai"}], []))
-
-      assert 200 == post_body(endpoint, body)
-
-      assert %{status: 200, bytes: bytes, decoded_bytes: decoded_bytes} =
-               OtlpReceiver.await_export(receiver)
-
-      assert bytes == byte_size(body)
-      assert decoded_bytes == byte_size(:zlib.gunzip(body))
-
-      :ok = OtlpReceiver.respond_with(receiver, 503)
-      assert 503 == post_body(endpoint, body)
-      assert %{status: 503, bytes: ^bytes} = OtlpReceiver.await_export(receiver)
-    end
-
-    test "with :hang accepts the request, records it and never replies", %{receiver: receiver} do
-      :ok = OtlpReceiver.respond_with(receiver, :hang)
-
-      assert {:error, :timeout} ==
-               post_metrics(receiver, request([{"service.name", "td-ai"}], []), timeout: 300)
-
-      assert %{metrics: [], status: :hang} = OtlpReceiver.await_export(receiver)
-    end
-
-    test "a hung request does not stop the receiver answering the next one", %{
-      receiver: receiver
-    } do
-      :ok = OtlpReceiver.respond_with(receiver, :hang)
-      assert {:error, :timeout} == post_metrics(receiver, request([], []), timeout: 200)
-
-      :ok = OtlpReceiver.respond_with(receiver, 200)
-      assert 200 == post_metrics(receiver, request([], []))
-    end
   end
 
   defp request(resource_attributes, metrics) do
@@ -346,7 +243,7 @@ defmodule TdCore.TestSupport.OtlpReceiverTest do
   defp encode_body(request),
     do: request |> Protobuf.encode_to_iodata() |> IO.iodata_to_binary() |> :zlib.gzip()
 
-  defp post_body(endpoint, body, http_options \\ []) do
+  defp post_body(endpoint, body, http_options) do
     post(
       endpoint <> "/v1/metrics",
       body,

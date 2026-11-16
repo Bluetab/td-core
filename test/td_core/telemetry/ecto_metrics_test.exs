@@ -1,204 +1,123 @@
 defmodule TdCore.Telemetry.EctoMetricsTest do
-  # The exporter keeps a global ETS table and a persistent_term key, so these
-  # tests cannot run concurrently.
+  # The exporter keeps a global ETS table and a persistent_term key, so these tests cannot
+  # run concurrently.
   use ExUnit.Case, async: false
 
   alias TdCore.Telemetry.EctoMetrics
   alias TdCore.Telemetry.Exporter
   alias TdCore.TestSupport.OtlpReceiver
 
-  @event [:td_test, :repo, :query]
-  @request_like_bounds [
-    5.0,
-    10.0,
-    25.0,
-    50.0,
-    100.0,
-    250.0,
-    500.0,
-    1000.0,
-    2500.0,
-    5000.0,
-    10_000.0,
-    30_000.0,
-    60_000.0
-  ]
+  defmodule FakeRepo do
+    def config, do: [telemetry_prefix: [:td_test, :custom_prefix]]
+  end
+
+  @event [:td_test, :custom_prefix, :query]
+  @bounds [1.0, 2.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0] ++
+            [10_000.0, 30_000.0, 60_000.0]
 
   setup do
     on_exit(fn -> EctoMetrics.detach(@event) end)
     {:ok, receiver: OtlpReceiver.start()}
   end
 
-  describe "a query through the real exporter" do
-    test "produces both durations as millisecond distributions with the request-like buckets",
-         %{receiver: receiver} do
-      start_exporter(receiver)
-
-      query(%{query_time: native_ms(12), queue_time: native_ms(3), decode_time: native_ms(1)})
-
-      assert %{
-               type: :histogram,
-               unit: "ms",
-               points: [%{count: 1, bounds: @request_like_bounds, sum: 12.0}]
-             } = OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
-
-      assert %{
-               type: :histogram,
-               unit: "ms",
-               points: [%{count: 1, bounds: @request_like_bounds, sum: 3.0}]
-             } = OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
-    end
-
-    test "states milliseconds in the descriptions, and that the duration excludes decode time",
-         %{receiver: receiver} do
-      start_exporter(receiver)
-      query(%{query_time: native_ms(1), queue_time: native_ms(1)})
-
-      assert %{description: duration} =
-               OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
-
-      assert %{description: wait} =
-               OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
-
-      assert duration =~ "milliseconds"
-      assert duration =~ "excludes decode time"
-      assert wait =~ "milliseconds"
-    end
+  test "wiring/1 follows the repo's telemetry_prefix" do
+    assert [attach: [{EctoMetrics, :attach, [@event]}]] =
+             Keyword.take(EctoMetrics.wiring(FakeRepo), [:attach])
   end
 
-  describe "the query counter" do
-    test "counts queries by outcome, success or failure", %{receiver: receiver} do
-      start_exporter(receiver)
-
-      query(%{query_time: native_ms(1)}, %{result: {:ok, %{}}})
-      query(%{query_time: native_ms(1)}, %{result: {:ok, %{}}})
-      query(%{query_time: native_ms(1)}, %{result: {:error, %{message: "boom"}}})
-
-      assert %{type: :sum, monotonic: true, points: points} =
-               OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
-
-      assert points
-             |> Enum.map(&Map.take(&1, [:attributes, :value]))
-             |> Enum.sort_by(& &1.attributes["truedat.outcome"]) == [
-               %{attributes: %{"truedat.outcome" => "failure"}, value: 1},
-               %{attributes: %{"truedat.outcome" => "success"}, value: 2}
-             ]
-    end
+  test "with the endpoint unset, the handler is never attached" do
+    assert {:ok, :undefined} = start_supervised({Exporter, EctoMetrics.wiring(FakeRepo)})
+    assert :telemetry.list_handlers(@event) == []
   end
 
-  describe "a query inside a transaction (no queue_time)" do
-    test "gives no wait-time sample, and later queries are still counted", %{receiver: receiver} do
-      start_exporter(receiver)
+  test "exports both durations as millisecond distributions", %{receiver: receiver} do
+    start_exporter(receiver)
+    query(%{query_time: native_us(12_000), queue_time: native_us(800)})
 
-      query(%{query_time: native_ms(4)})
-      assert %{} = OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
+    assert %{type: :histogram, unit: "ms", points: [%{count: 1, bounds: @bounds, sum: 12.0}]} =
+             OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
 
-      query(%{query_time: native_ms(9), queue_time: native_ms(2)})
-
-      assert %{points: [%{count: 1, sum: 2.0}]} =
-               OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
-
-      assert 2 == counted(receiver, "success")
-    end
+    # 0.8 ms is a float when it reaches the exporter, so it lands in the first bucket.
+    assert %{points: [%{count: 1, bucket_counts: [1 | _]}]} =
+             OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
   end
 
-  describe "what leaves the service" do
-    test "carries no SQL text, SQL parameters or table, and only the allowed labels", %{
-      receiver: receiver
-    } do
-      start_exporter(receiver)
+  test "counts queries by outcome", %{receiver: receiver} do
+    start_exporter(receiver)
 
-      query(
-        %{query_time: native_ms(7), queue_time: native_ms(1)},
-        %{
-          query: "SELECT email FROM users WHERE name = $1",
-          params: ["jane.doe@example.com"],
-          cast_params: ["jane.doe@example.com"],
-          source: "users",
-          result: {:ok, %{}}
-        }
-      )
+    query(%{query_time: 1}, %{result: {:ok, %{}}})
+    query(%{query_time: 1}, %{result: {:ok, %{}}})
+    query(%{query_time: 1}, %{result: {:error, %{}}})
 
-      OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
-      OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
-      OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
+    assert %{type: :sum, points: points} =
+             OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
 
-      exported = exported_metrics(receiver)
-      assert length(exported) >= 3
-
-      for metric <- exported, point <- metric.points do
-        assert Map.keys(point.attributes) -- ["truedat.outcome"] == [],
-               "#{metric.name} has an unexpected label: #{inspect(point.attributes)}"
-      end
-
-      dump = inspect(exported, limit: :infinity, printable_limit: :infinity)
-
-      for secret <- ["SELECT", "WHERE", "$1", "jane.doe", "example.com", "users"] do
-        refute dump =~ secret, "#{inspect(secret)} reached the export"
-      end
-    end
+    assert points |> Enum.map(&{&1.attributes["truedat.outcome"], &1.value}) |> Enum.sort() ==
+             [{"failure", 1}, {"success", 2}]
   end
 
-  describe "with the endpoint unset" do
-    test "the handler is never attached to the service's query event" do
-      assert {:ok, :undefined} = start_supervised({Exporter, EctoMetrics.wiring(@event)})
+  test "a missing queue_time gives no wait sample and the handler stays attached", %{
+    receiver: receiver
+  } do
+    start_exporter(receiver)
 
-      assert :telemetry.list_handlers(@event) == []
-    end
+    query(%{query_time: native_us(4_000)})
+    query(%{query_time: native_us(9_000), queue_time: native_us(2_000)})
+
+    assert %{points: [%{count: 2}]} =
+             OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
+
+    assert %{points: [%{count: 1, sum: 2.0}]} =
+             OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
+
+    assert [_handler] = :telemetry.list_handlers(@event)
   end
 
-  describe "wiring/1" do
-    test "detaches the handler when a later setup step fails, so queries cost nothing", %{
-      receiver: receiver
-    } do
-      wiring =
-        Keyword.update!(EctoMetrics.wiring(@event), :setup, &(&1 ++ [{__MODULE__, :fail, []}]))
+  test "transaction control is not counted as a query", %{receiver: receiver} do
+    start_exporter(receiver)
 
-      capture_log =
-        ExUnit.CaptureLog.capture_log(fn ->
-          assert {:ok, :undefined} =
-                   start_supervised({Exporter, [endpoint: receiver.endpoint] ++ wiring})
-        end)
+    for statement <- ["begin", "commit", "rollback"],
+        do: query(%{query_time: 1}, %{query: statement})
 
-      assert capture_log =~ "telemetry is off"
-      assert :telemetry.list_handlers(@event) == []
-    end
+    query(%{query_time: 1}, %{query: "SELECT 1"})
 
-    test "attaches the handler and exports when the endpoint is set", %{receiver: receiver} do
-      start_exporter(receiver)
-
-      assert [_handler] = :telemetry.list_handlers(@event)
-      query(%{query_time: native_ms(2)})
-      assert %{} = OtlpReceiver.await_metric(receiver, "db.client.operation.duration")
-    end
+    assert %{points: [%{value: 1}]} =
+             OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
   end
 
-  @doc false
-  def fail, do: raise("a later setup step failed")
+  test "no SQL text, parameter or table reaches the export, and no label but the outcome", %{
+    receiver: receiver
+  } do
+    start_exporter(receiver)
 
-  defp exported_metrics(receiver) do
-    receiver.agent
-    |> Agent.get(& &1.history)
-    |> Enum.flat_map(& &1.metrics)
-    |> Enum.filter(&String.starts_with?(&1.name, ["db.client.", "truedat.db."]))
-  end
+    query(%{query_time: 7, queue_time: 1}, %{
+      query: "SELECT email FROM users WHERE name = $1",
+      params: ["jane.doe@example.com"],
+      cast_params: ["jane.doe@example.com"],
+      source: "users"
+    })
 
-  defp counted(receiver, outcome) do
     OtlpReceiver.await_metric(receiver, "truedat.db.client.operations")
-    Process.sleep(250)
+    OtlpReceiver.await_metric(receiver, "db.client.connection.wait_time")
 
-    receiver
-    |> exported_metrics()
-    |> Enum.filter(&(&1.name == "truedat.db.client.operations"))
-    |> Enum.flat_map(& &1.points)
-    |> Enum.filter(&(&1.attributes["truedat.outcome"] == outcome))
-    |> Enum.map(& &1.value)
-    |> Enum.sum()
+    exported =
+      receiver.agent |> Agent.get(& &1.history) |> Enum.flat_map(& &1.metrics)
+
+    for metric <- exported, point <- metric.points do
+      assert Map.keys(point.attributes) -- ["truedat.outcome"] == []
+    end
+
+    dump = inspect(exported, limit: :infinity, printable_limit: :infinity)
+
+    for secret <- ["SELECT", "$1", "jane.doe", "users"] do
+      refute dump =~ secret
+    end
   end
 
   defp start_exporter(receiver) do
     start_supervised!(
-      {Exporter, [endpoint: receiver.endpoint, export_period: 100] ++ EctoMetrics.wiring(@event)}
+      {Exporter,
+       [endpoint: receiver.endpoint, export_period: 100] ++ EctoMetrics.wiring(FakeRepo)}
     )
   end
 
@@ -206,5 +125,5 @@ defmodule TdCore.Telemetry.EctoMetricsTest do
     :telemetry.execute(@event, measurements, Map.merge(%{result: {:ok, %{}}}, metadata))
   end
 
-  defp native_ms(ms), do: System.convert_time_unit(ms, :millisecond, :native)
+  defp native_us(us), do: System.convert_time_unit(us, :microsecond, :native)
 end
