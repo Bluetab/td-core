@@ -1,5 +1,65 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- `TdCore.Telemetry.EctoMetrics.wiring/1` takes the repo module and reads the
+  query event from its `:telemetry_prefix`. The `:setup` and `:teardown`
+  options of `TdCore.Telemetry.Exporter` are replaced by `:attach`.
+- `TdCore.Telemetry.EctoMetrics` no longer counts transaction control
+  (`begin`, `commit`, `rollback`) as queries in the duration and the counter.
+  Their `queue_time` still feeds the wait, because a transaction checks out
+  its connection on `begin`. Both distributions gain 1 ms
+  and 2 ms buckets.
+- `TdCore.Telemetry.Exporter` no longer drops `summary` metrics one by one: an
+  unsupported metric switches telemetry off with a warning, like any other bad
+  option. The protocol is read from the environment only, and the `:protocol`,
+  `:metrics_protocol` and `:id` options are gone.
+- `TdCore.Telemetry.Exporter` takes an `:env` option, the environment
+  variables to read, `System.get_env()` by default. Its tests pass an
+  environment instead of changing the process environment.
+- `TdCore.TestSupport.OtlpReceiver` compiles only when
+  `config :td_core, :otlp_receiver, true` is set, so it no longer ships in
+  releases. Its `:hang` mode, byte counts and data point timestamps are
+  removed.
+
+## [8.16.0] 2026-11-10
+
+### Changed
+
+- Widen the `plug` range from `~> 1.16.3` to `>= 1.16.3 and < 2.0.0`, so
+  `td-i18n`, `td-df`, `td-audit` and `td-auth` (locked on `plug` 1.19.2 to
+  1.20.3) can take `td_core` without a `plug` override, and `td-ai` can drop
+  its own. Observability ticket 33, which closes decision D9. The floor is
+  unchanged, so a service locked on 1.16.3 or later still resolves. A service
+  that re-resolves `td_core` takes the newest `plug` the range allows, up to
+  below 2.0.0.
+
+## [8.15.0] 2026-11-05
+
+### Added
+
+- Observability slice 1 (tickets 23 to 25 of the observability spec):
+  - `TdCore.Telemetry.Exporter`, a child that exports metrics as OTLP protobuf
+    with gzip through `otel_metric_exporter` 0.4.4. It starts only when an
+    endpoint is set, from the `:endpoint` option, the `:td_core` application
+    config or `OTEL_EXPORTER_OTLP_ENDPOINT`, in that order. Telemetry never
+    takes a service down: an unsupported protocol, a bad `:metrics` option or an
+    exporter that fails to start leaves the service running with telemetry off
+    and a logged warning. A `summary` metric is never handed to the exporter,
+    and each one dropped is named in a warning. The `:setup` and `:teardown`
+    options attach and detach anything that must exist only while telemetry is
+    on.
+  - `TdCore.Telemetry.EctoMetrics`: `db.client.operation.duration`,
+    `db.client.connection.wait_time` (both distributions, in milliseconds) and
+    `truedat.db.client.operations` (counter by `truedat.outcome`, `success` or
+    `failure`), from a service's Ecto query event. `wiring/1` gives the
+    exporter everything it needs for a repo event.
+  - `TdCore.TestSupport.OtlpReceiver`, a stub OTLP/HTTP receiver for tests.
+- New dependencies: `otel_metric_exporter` 0.4.4 (pinned), and `plug_cowboy`
+  (optional, only for the receiver; every service already lists it).
+
 ## [8.14.0] 2026-11-04
 
 ### Fixed
