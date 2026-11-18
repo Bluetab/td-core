@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8673] Configure Renovate for Mix dependencies
+
 ## [8.14.0] 2026-11-04
 
 ### Fixed
