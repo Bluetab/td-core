@@ -19,6 +19,17 @@ defmodule TdCore.XLSX.ReaderTest do
   end
 
   describe "read/2" do
+    test "keeps header-only sheets only when requested" do
+      path = xlsx_path("only_headers")
+
+      assert {:error, :empty_sheets} = Reader.read(path)
+      assert {:ok, %{"type_1" => {[_ | _], []}}} = Reader.read(path, keep_header_only: true)
+    end
+
+    test "does not retain truly empty sheets when keeping header-only sheets" do
+      assert {:error, :empty_sheets} = Reader.read(xlsx_path("empty"), keep_header_only: true)
+    end
+
     test "processes xlsx" do
       {:ok, result} =
         "upload_tiny"
@@ -131,6 +142,29 @@ defmodule TdCore.XLSX.ReaderTest do
                     ]
                   ]}
              } = result
+    end
+  end
+
+  describe "drop_header_only/1" do
+    test "preserves data sheets in maps and returns empty_sheets when only headers remain" do
+      data_sheet = {"type_1", {["external_id"], [["id-1"]]}}
+      header_only_sheet = {"type_2", {["external_id"], []}}
+
+      assert {:ok, %{"type_1" => {[_ | _], [_ | _]}}} =
+               Reader.drop_header_only(Map.new([data_sheet, header_only_sheet]))
+
+      assert {:error, :empty_sheets} =
+               Reader.drop_header_only(%{"type_2" => elem(header_only_sheet, 1)})
+    end
+
+    test "preserves data-sheet order in lists" do
+      sheets = [
+        {"type_1", {["external_id"], [["id-1"]]}},
+        {"type_2", {["external_id"], []}},
+        {"type_3", {["external_id"], [["id-3"]]}}
+      ]
+
+      assert {:ok, [{"type_1", _}, {"type_3", _}]} = Reader.drop_header_only(sheets)
     end
   end
 

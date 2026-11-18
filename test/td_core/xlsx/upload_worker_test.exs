@@ -2,37 +2,241 @@ defmodule TdCore.XLSX.UploadWorkerTest do
   use ExUnit.Case
 
   import ExUnit.CaptureLog
+  import Mox
 
   alias TdCluster.TestHelpers.TdAuditMock.UploadJobs
   alias TdCore.Auth.Claims
-  alias TdCore.TestSupport.CacheHelpers
   alias TdCore.XLSX.UploadWorker
 
-  @moduletag sandbox: :shared
+  setup :verify_on_exit!
 
   setup_all do
-    user = CacheHelpers.insert_user(role: "admin")
-
     claims =
       %Claims{
-        user_id: user.id,
-        user_name: user.user_name,
-        role: user.role,
+        user_id: 123,
+        user_name: "upload_admin",
+        role: "admin",
         jti: 123,
         exp: DateTime.add(DateTime.utc_now(), 10)
       }
       |> Jason.encode!()
       |> Jason.decode!()
 
-    [claims: claims, user: user]
+    [claims: claims]
   end
 
   describe "perform/1" do
+    test "preflight rejects a header-only second sheet before processing any rows", %{
+      claims: claims
+    } do
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "td_core_preflight_#{System.unique_integer([:positive])}.xlsx"
+        )
+
+      on_exit(fn -> File.rm(path) end)
+
+      %Elixlsx.Workbook{
+        sheets: [
+          %Elixlsx.Sheet{name: "type_1", rows: [["external_id"], ["id-1"]]},
+          %Elixlsx.Sheet{name: "type_2", rows: [["name_es"]]}
+        ]
+      }
+      |> Elixlsx.write_to(path)
+
+      job_id = 1001
+
+      Mox.expect(MockBulkLoadItem, :get_opts, fn _ ->
+        [
+          preflight: fn sheets, _ctx ->
+            assert %{
+                     "type_1" => {["external_id"], [["id-1"]]},
+                     "type_2" => {["name_es"], []}
+                   } = sheets
+
+            {:error, :invalid_format}
+          end
+        ]
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+      UploadJobs.create_failed(&Mox.expect/4, job_id, :invalid_format)
+
+      assert capture_log(fn ->
+               assert {:ok, nil} =
+                        UploadWorker.run(%{
+                          "path" => path,
+                          "job_id" => job_id,
+                          "scope" => "mock_bulk_load",
+                          "opts" => %{
+                            "lang" => "en",
+                            "auto_publish" => "false",
+                            "claims" => claims
+                          }
+                        })
+             end) == ""
+    end
+
+    test "header-only uploads without preflight still fail as empty_sheets", %{claims: claims} do
+      Mox.expect(MockBulkLoadItem, :get_opts, 1, fn _ -> [] end)
+      UploadJobs.create_started(&Mox.expect/4, 1002)
+      UploadJobs.create_failed(&Mox.expect/4, 1002, :empty_sheets)
+
+      assert {:ok, nil} =
+               UploadWorker.run(%{
+                 "path" => "test/fixtures/xlsx/only_headers.xlsx",
+                 "job_id" => 1002,
+                 "scope" => "mock_bulk_load",
+                 "opts" => %{"lang" => "en", "auto_publish" => "false", "claims" => claims}
+               })
+    end
+
+    test "preflight rejection of a header-only upload takes precedence over empty_sheets", %{
+      claims: claims
+    } do
+      Mox.expect(MockBulkLoadItem, :get_opts, fn _ ->
+        [
+          preflight: fn sheets, _ctx ->
+            assert %{"type_1" => {[_ | _], []}} = sheets
+            {:error, :invalid_format}
+          end
+        ]
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, 1003)
+      UploadJobs.create_failed(&Mox.expect/4, 1003, :invalid_format)
+
+      assert {:ok, nil} =
+               UploadWorker.run(%{
+                 "path" => "test/fixtures/xlsx/only_headers.xlsx",
+                 "job_id" => 1003,
+                 "scope" => "mock_bulk_load",
+                 "opts" => %{"lang" => "en", "auto_publish" => "false", "claims" => claims}
+               })
+    end
+
+    test "creates only STARTED and FAILED with invalid_format when preflight returns a map error",
+         %{claims: claims} do
+      job_id = 997
+      reason = %{reason: "bad"}
+
+      Mox.expect(MockBulkLoadItem, :get_opts, fn _ ->
+        [
+          preflight: fn sheets, ctx ->
+            assert %{"type_1" => {_headers, rows}} = sheets
+            assert length(rows) == 3
+            assert ctx.job_id == job_id
+            assert ctx.lang == "es"
+            send(self(), :preflight_called)
+            {:error, reason}
+          end
+        ]
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+      UploadJobs.create_failed(&Mox.expect/4, job_id, :invalid_format)
+
+      assert capture_log(fn ->
+               assert {:ok, nil} =
+                        UploadWorker.run(%{
+                          "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                          "job_id" => job_id,
+                          "scope" => "mock_bulk_load",
+                          "opts" => %{
+                            "lang" => "es",
+                            "auto_publish" => "false",
+                            "claims" => claims
+                          }
+                        })
+             end) == ""
+
+      assert_received :preflight_called
+      refute_received :preflight_called
+    end
+
+    test "reports a generic failure when preflight returns a malformed result", %{claims: claims} do
+      job_id = 1005
+
+      Mox.expect(MockBulkLoadItem, :get_opts, fn _ -> [preflight: fn _, _ -> :invalid end] end)
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+      UploadJobs.create_failed(&Mox.expect/4, job_id, :invalid_format)
+
+      assert capture_log(fn ->
+               assert {:ok, nil} =
+                        UploadWorker.run(%{
+                          "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                          "job_id" => job_id,
+                          "scope" => "mock_bulk_load",
+                          "opts" => %{
+                            "lang" => "es",
+                            "auto_publish" => "false",
+                            "claims" => claims
+                          }
+                        })
+             end) == ""
+    end
+
+    test "fails normally without item events when preflight returns {:ok, nil}", %{claims: claims} do
+      job_id = 1006
+
+      Mox.expect(MockBulkLoadItem, :get_opts, fn _ ->
+        [preflight: fn _, _ -> {:ok, nil} end]
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+      UploadJobs.create_failed(&Mox.expect/4, job_id, :invalid_format)
+
+      assert capture_log(fn ->
+               assert {:ok, nil} =
+                        UploadWorker.run(%{
+                          "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                          "job_id" => job_id,
+                          "scope" => "mock_bulk_load",
+                          "opts" => %{
+                            "lang" => "es",
+                            "auto_publish" => "false",
+                            "claims" => claims
+                          }
+                        })
+             end) == ""
+    end
+
+    for malformed_result <- [{:ok, [:bad]}, {:error, {:bad, :reason}}] do
+      test "fails safely when preflight returns #{inspect(malformed_result)}", %{claims: claims} do
+        job_id = 1007
+
+        Mox.expect(MockBulkLoadItem, :get_opts, fn _ ->
+          [preflight: fn _, _ -> unquote(Macro.escape(malformed_result)) end]
+        end)
+
+        UploadJobs.create_started(&Mox.expect/4, job_id)
+        UploadJobs.create_failed(&Mox.expect/4, job_id, :invalid_format)
+
+        assert capture_log(fn ->
+                 assert {:ok, nil} =
+                          UploadWorker.run(%{
+                            "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                            "job_id" => job_id,
+                            "scope" => "mock_bulk_load",
+                            "opts" => %{
+                              "lang" => "es",
+                              "auto_publish" => "false",
+                              "claims" => claims
+                            }
+                          })
+               end) == ""
+      end
+    end
+
     test "creates STARTED event before processing", %{claims: claims} do
       path = "test/fixtures/xlsx/upload_tiny.xlsx"
       job_id = 888
       lang = "es"
       auto_publish = "false"
+
+      Mox.expect(MockBulkLoadItem, :get_opts, 1, fn _ -> [] end)
 
       Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _, _, _ ->
         {:created, {"id", "details"}}
@@ -76,6 +280,7 @@ defmodule TdCore.XLSX.UploadWorkerTest do
       lang = "es"
       auto_publish = "false"
 
+      Mox.expect(MockBulkLoadItem, :get_opts, 1, fn _ -> [] end)
       Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _, _, _ -> :error end)
 
       UploadJobs.create_started(&Mox.expect/4, job_id)
@@ -121,6 +326,8 @@ defmodule TdCore.XLSX.UploadWorkerTest do
       lang = "es"
       auto_publish = "false"
 
+      Mox.expect(MockBulkLoadItem, :get_opts, 1, fn _ -> [] end)
+
       Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _, _, _ ->
         raise "boom"
       end)
@@ -162,7 +369,7 @@ defmodule TdCore.XLSX.UploadWorkerTest do
       assert log =~ "bulk_load_item raised:"
     end
 
-    test "handles invalid file format", %{claims: claims} do
+    test "reports invalid format without resolving bulk-load options", %{claims: claims} do
       path = "test/fixtures/xlsx/invalid.xlsx"
       job_id = 889
       lang = "es"

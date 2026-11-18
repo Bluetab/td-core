@@ -11,17 +11,23 @@ defmodule TdCore.XLSX.Reader do
 
   ## Functions
 
-  - `read/1` - Reads and processes an XLSX file, returning parsed data.
+  - `read/1` and `read/2` - Read an XLSX file, optionally keeping header-only sheets.
+  - `drop_header_only/1` - Removes sheets with headers but no data rows.
   - `normalize_line_endings/1` - Converts Excel CRLF/CR line endings to LF.
   """
 
-  def read(path) do
+  @doc """
+  Reads parsed sheets with data rows. Set `:keep_header_only` to `true` to also
+  retain sheets with headers but no data rows for upload preflight checks.
+  """
+  def read(path, opts \\ []) do
     with {:ok, package} <- XlsxReader.open(path),
          sheet_names <- XlsxReader.sheet_names(package) do
       sheet_names
       |> Enum.map(&parse_sheet(&1, package))
       |> Enum.filter(fn
         {_, {_, [_ | _]}} -> true
+        {_, {[_ | _], []}} -> Keyword.get(opts, :keep_header_only, false)
         _ -> false
       end)
       |> case do
@@ -31,6 +37,28 @@ defmodule TdCore.XLSX.Reader do
     else
       {:error, "invalid zip file"} -> {:error, :invalid_format}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Removes sheets with headers but no data rows while preserving the input
+  collection type and ordering. Returns `:empty_sheets` when none remain.
+  """
+  def drop_header_only(sheets) when is_map(sheets) do
+    sheets
+    |> Map.reject(fn {_name, {_headers, rows}} -> rows == [] end)
+    |> case do
+      sheets when map_size(sheets) == 0 -> {:error, :empty_sheets}
+      sheets -> {:ok, sheets}
+    end
+  end
+
+  def drop_header_only(sheets) when is_list(sheets) do
+    sheets
+    |> Enum.reject(fn {_name, {_headers, rows}} -> rows == [] end)
+    |> case do
+      [] -> {:error, :empty_sheets}
+      sheets -> {:ok, sheets}
     end
   end
 

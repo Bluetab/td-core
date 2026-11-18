@@ -7,6 +7,7 @@ defmodule TdCore.XLSX.UploadWorker do
   alias TdCluster.Cluster.TdAudit.UploadJobs
   alias TdCore.Auth.Claims
   alias TdCore.XLSX.BulkLoad
+  alias TdCore.XLSX.BulkLoadProtocol
   alias TdCore.XLSX.Reader
 
   def run(%{
@@ -35,8 +36,10 @@ defmodule TdCore.XLSX.UploadWorker do
 
     UploadJobs.create_started(job_id)
 
-    with {:ok, sheets} <- Reader.read(path),
-         {:ok, result} <- BulkLoad.bulk_load(sheets, ctx) do
+    with {:ok, sheets} <- Reader.read(path, keep_header_only: true),
+         opts <- BulkLoadProtocol.get_opts(impl_for),
+         {:ok, sheets} <- maybe_drop_header_only(sheets, opts),
+         {:ok, result} <- BulkLoad.bulk_load(sheets, ctx, opts) do
       UploadJobs.create_completed(job_id, result)
     else
       {:error, reason} -> UploadJobs.create_failed(job_id, reason)
@@ -47,5 +50,11 @@ defmodule TdCore.XLSX.UploadWorker do
       Logger.error(Exception.format(:error, e, __STACKTRACE__))
 
       UploadJobs.create_failed(job_id, inspect(e))
+  end
+
+  defp maybe_drop_header_only(sheets, opts) do
+    if Keyword.has_key?(opts, :preflight),
+      do: {:ok, sheets},
+      else: Reader.drop_header_only(sheets)
   end
 end
