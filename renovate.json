@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["mix"],
+  "baseBranchPatterns": ["main"],
+  "automerge": false,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 7am on monday"]
+  }
+}
