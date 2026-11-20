@@ -14,6 +14,19 @@ defmodule TdCore.XLSX.BulkLoad do
   def bulk_load(raw_sheets, ctx) do
     opts = BulkLoadProtocol.get_opts(ctx.impl_for)
 
+    with {:ok, sheets} <- preflight(raw_sheets, ctx, opts) do
+      do_bulk_load(sheets, ctx, opts)
+    end
+  end
+
+  defp preflight(raw_sheets, ctx, opts) do
+    case Keyword.fetch(opts, :preflight) do
+      {:ok, preflight} -> preflight.(raw_sheets, ctx)
+      :error -> {:ok, raw_sheets}
+    end
+  end
+
+  defp do_bulk_load(sheets, ctx, opts) do
     required_headers = Keyword.get(opts, :required_headers, [])
     discarded_headers = Keyword.get(opts, :discarded_headers, [])
     extra_headers = Keyword.get(opts, :extra_headers, [])
@@ -41,7 +54,7 @@ defmodule TdCore.XLSX.BulkLoad do
         discarded_headers: discarded_headers
       })
 
-    {valid_sheets, invalid_sheet_count} = validate_sheets_headers(raw_sheets, headers_ctx)
+    {valid_sheets, invalid_sheet_count} = validate_sheets_headers(sheets, headers_ctx)
 
     params = parse_sheets(valid_sheets, headers_ctx)
 

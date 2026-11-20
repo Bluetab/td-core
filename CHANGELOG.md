@@ -1,5 +1,11 @@
 # Changelog
 
+## [8.14.2] 2026-11-20
+
+### Added
+
+- [TD-8699] Optional `:preflight` bulk load option to validate or rewrite the raw XLSX sheets before header validation.
+
 ## [8.14.1] 2026-11-19
 
 ### Added

@@ -8,7 +8,8 @@ config :td_core, TdCore.Search.Cluster,
 config :td_core, TdCore.Search.IndexWorker, TdCore.Search.IndexWorkerMock
 
 config :td_core, :bulk_load_implementations, %{
-  "mock_bulk_load" => MockBulkLoadImpl
+  "mock_bulk_load" => MockBulkLoadImpl,
+  "failing_preflight_bulk_load" => FailingPreflightBulkLoadImpl
 }
 
 config :td_cluster, TdCluster.ClusterHandler, MockClusterHandler

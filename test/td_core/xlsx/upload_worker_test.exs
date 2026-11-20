@@ -70,6 +70,23 @@ defmodule TdCore.XLSX.UploadWorkerTest do
                })
     end
 
+    test "fails the job without row events when the preflight rejects the workbook", %{
+      claims: claims
+    } do
+      job_id = 889
+
+      UploadJobs.create_started(&Mox.expect/4, job_id)
+      UploadJobs.create_failed(&Mox.expect/4, job_id, :invalid_format)
+
+      assert {:ok, nil} =
+               UploadWorker.run(%{
+                 "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                 "job_id" => job_id,
+                 "scope" => "failing_preflight_bulk_load",
+                 "opts" => %{"lang" => "en", "auto_publish" => "false", "claims" => claims}
+               })
+    end
+
     test "logs unexpected bulk_load_item results as errors without aborting", %{claims: claims} do
       path = "test/fixtures/xlsx/upload_tiny.xlsx"
       job_id = 890

@@ -6,11 +6,11 @@ defmodule ConfigurableBulkLoadImpl do
   nil, and the generic pipeline must not crash on it.
   """
 
-  defstruct templates: %{}
+  defstruct templates: %{}, opts: []
 
   defimpl TdCore.XLSX.BulkLoadProtocol do
-    def get_opts(_impl),
-      do: [required_headers: ["external_id"], extra_headers: ["name"]]
+    def get_opts(%{opts: opts}),
+      do: Keyword.merge([required_headers: ["external_id"], extra_headers: ["name"]], opts)
 
     def bulk_load_item(_impl, item, ctx) do
       if Map.has_key?(ctx.templates, item["_sheet"]) do
