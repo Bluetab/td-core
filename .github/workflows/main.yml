@@ -15,3 +15,14 @@ jobs:
       - run: mix credo --strict
       - run: mix format --check-formatted
       - run: mix test
+
+  hex_audit:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: erlef/setup-elixir@v1
+        with:
+          otp-version: "27.2"
+          elixir-version: "1.18.1"
+      - run: bash ci/hex_audit.sh
