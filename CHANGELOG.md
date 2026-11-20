@@ -6,6 +6,18 @@
 
 - [TD-8699] Optional `:preflight` bulk load option to validate or rewrite the raw XLSX sheets before header validation.
 
+## [8.14.1] 2026-11-19
+
+### Added
+
+- [TD-8673] Configure Renovate for Mix dependencies
+
+## [8.14.0] 2026-11-04
+
+### Fixed
+
+- [TD-8573] Vulnerabilities
+
 ## [8.13.1] 2026-10-26
 
 ### Added
