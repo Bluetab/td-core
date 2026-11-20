@@ -1,7 +1,6 @@
 defmodule TdCore.XLSX.Test.BulkLoadItemBehaviour do
   @moduledoc "Behaviour to let tests stub a single bulk_load_item/3 result via Mox"
   @callback bulk_load_item(struct(), map(), map()) :: term()
-  @callback get_opts(struct()) :: keyword()
 end
 
 Mox.defmock(MockClusterHandler, for: TdCluster.ClusterHandler)

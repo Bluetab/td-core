@@ -3,17 +3,10 @@ defmodule TdCore.XLSX.BulkLoad do
   Generic XLSX bulk load.
 
   Dispatches to the appropriate BulkLoadProtocol implementation based on job scope.
-
-  `bulk_load/2` preserves the direct-call contract: it obtains the protocol
-  options and processes the supplied sheets, including header-only sheets.
-  `bulk_load/3` is for upload workers that have already resolved those options;
-  when they provide `:preflight`, header-only sheets are removed only after the
-  preflight callback succeeds.
   """
 
   alias TdCluster.Cluster.TdAudit.UploadJobs
   alias TdCore.XLSX.BulkLoadProtocol
-  alias TdCore.XLSX.Reader
   alias TdDfLib.Format
 
   require Logger
@@ -21,55 +14,19 @@ defmodule TdCore.XLSX.BulkLoad do
   def bulk_load(raw_sheets, ctx) do
     opts = BulkLoadProtocol.get_opts(ctx.impl_for)
 
-    with {:ok, sheets} <- maybe_preflight(raw_sheets, ctx, opts) do
+    with {:ok, sheets} <- preflight(raw_sheets, ctx, opts) do
       do_bulk_load(sheets, ctx, opts)
     end
   end
 
-  @doc false
-  def bulk_load(raw_sheets, ctx, opts) do
-    with {:ok, sheets} <- maybe_preflight(raw_sheets, ctx, opts),
-         {:ok, sheets} <- maybe_drop_header_only(sheets, opts) do
-      do_bulk_load(sheets, ctx, opts)
-    end
-  end
-
-  defp maybe_preflight(raw_sheets, ctx, opts) do
+  defp preflight(raw_sheets, ctx, opts) do
     case Keyword.fetch(opts, :preflight) do
-      {:ok, preflight} -> normalize_preflight_result(preflight.(raw_sheets, ctx))
+      {:ok, preflight} -> preflight.(raw_sheets, ctx)
       :error -> {:ok, raw_sheets}
     end
   end
 
-  defp normalize_preflight_result({:ok, sheets}) do
-    if valid_sheets?(sheets), do: {:ok, sheets}, else: {:error, :invalid_format}
-  end
-
-  defp normalize_preflight_result({:error, reason}) when is_binary(reason) or is_atom(reason),
-    do: {:error, reason}
-
-  defp normalize_preflight_result(_), do: {:error, :invalid_format}
-
-  defp valid_sheets?(sheets) when is_map(sheets) or is_list(sheets) do
-    Enum.all?(sheets, fn
-      {sheet_name, {headers, rows}}
-      when is_binary(sheet_name) and is_list(headers) and is_list(rows) ->
-        true
-
-      _ ->
-        false
-    end)
-  end
-
-  defp valid_sheets?(_), do: false
-
-  defp maybe_drop_header_only(sheets, opts) do
-    if Keyword.has_key?(opts, :preflight),
-      do: Reader.drop_header_only(sheets),
-      else: {:ok, sheets}
-  end
-
-  defp do_bulk_load(raw_sheets, ctx, opts) do
+  defp do_bulk_load(sheets, ctx, opts) do
     required_headers = Keyword.get(opts, :required_headers, [])
     discarded_headers = Keyword.get(opts, :discarded_headers, [])
     extra_headers = Keyword.get(opts, :extra_headers, [])
@@ -97,7 +54,7 @@ defmodule TdCore.XLSX.BulkLoad do
         discarded_headers: discarded_headers
       })
 
-    {valid_sheets, invalid_sheet_count} = validate_sheets_headers(raw_sheets, headers_ctx)
+    {valid_sheets, invalid_sheet_count} = validate_sheets_headers(sheets, headers_ctx)
 
     params = parse_sheets(valid_sheets, headers_ctx)
 

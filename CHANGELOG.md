@@ -4,7 +4,7 @@
 
 ### Added
 
-- [TD-8699] Add optional preflight validation and normalization of all XLSX sheets, including header-only sheets.
+- [TD-8699] Optional `:preflight` bulk load option to validate or rewrite the raw XLSX sheets before header validation.
 
 ## [8.13.1] 2026-10-26
 
