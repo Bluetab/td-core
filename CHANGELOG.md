@@ -6,6 +6,12 @@
 
 - [TD-7888] Allow XLSX uploads to specify a target status while preserving `auto_publish` compatibility.
 
+## [8.15.0] 2026-11-25
+
+### Changed
+
+- [TD-8673] Align Renovate configuration: group Mix dependency updates in a single `chore/td-dependency-management` pull request and disable separate lockfile maintenance
+
 ## [8.14.2] 2026-11-20
 
 ### Added
