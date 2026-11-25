@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- [TD-7888] Allow XLSX uploads to specify a target status while preserving `auto_publish` compatibility.
+
 ## [8.15.0] 2026-11-25
 
 ### Changed

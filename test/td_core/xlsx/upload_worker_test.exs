@@ -28,6 +28,83 @@ defmodule TdCore.XLSX.UploadWorkerTest do
   end
 
   describe "perform/1" do
+    test "explicit target status takes precedence over legacy auto_publish", %{claims: claims} do
+      Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _item, _claims, ctx ->
+        send(self(), {:requested_status, ctx.to_status})
+        {:created, {"id", "details"}}
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, 700)
+
+      Enum.each(2..4, fn row_number ->
+        UploadJobs.create_info(&Mox.expect/4, 700, %{
+          type: "created",
+          details: "details",
+          sheet: "type_1",
+          row_number: row_number
+        })
+      end)
+
+      UploadJobs.create_completed(&Mox.expect/4, 700, %{
+        insert_count: 3,
+        update_count: 0,
+        error_count: 0,
+        unchanged_count: 0,
+        invalid_sheet_count: 0
+      })
+
+      assert {:ok, nil} =
+               UploadWorker.run(%{
+                 "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                 "job_id" => 700,
+                 "scope" => "mock_bulk_load",
+                 "opts" => %{
+                   "lang" => "en",
+                   "auto_publish" => "true",
+                   "to_status" => "pending_approval",
+                   "claims" => claims
+                 }
+               })
+
+      assert_receive {:requested_status, "pending_approval"}
+    end
+
+    test "legacy auto_publish is preserved when target status is absent", %{claims: claims} do
+      Mox.expect(MockBulkLoadItem, :bulk_load_item, 3, fn _item, _claims, ctx ->
+        send(self(), {:requested_status, ctx.to_status})
+        {:created, {"id", "details"}}
+      end)
+
+      UploadJobs.create_started(&Mox.expect/4, 701)
+
+      Enum.each(2..4, fn row_number ->
+        UploadJobs.create_info(&Mox.expect/4, 701, %{
+          type: "created",
+          details: "details",
+          sheet: "type_1",
+          row_number: row_number
+        })
+      end)
+
+      UploadJobs.create_completed(&Mox.expect/4, 701, %{
+        insert_count: 3,
+        update_count: 0,
+        error_count: 0,
+        unchanged_count: 0,
+        invalid_sheet_count: 0
+      })
+
+      assert {:ok, nil} =
+               UploadWorker.run(%{
+                 "path" => "test/fixtures/xlsx/upload_tiny.xlsx",
+                 "job_id" => 701,
+                 "scope" => "mock_bulk_load",
+                 "opts" => %{"lang" => "en", "auto_publish" => "true", "claims" => claims}
+               })
+
+      assert_receive {:requested_status, "published"}
+    end
+
     test "creates STARTED event before processing", %{claims: claims} do
       path = "test/fixtures/xlsx/upload_tiny.xlsx"
       job_id = 888
