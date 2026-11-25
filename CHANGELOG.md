@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- [TD-8777] Add `TdCore.XLSX.UploadRecovery` to mark as failed the uploads orphaned by a restart or an Oban timeout
+
 ## [8.14.2] 2026-11-20
 
 ### Added
