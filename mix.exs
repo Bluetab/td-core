@@ -27,17 +27,17 @@ defmodule TdCore.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:plug, "~> 1.16.3"},
+      {:plug, "~> 1.20.0"},
       {:jason, "~> 1.4.4"},
-      {:guardian, "~> 2.4.1"},
+      {:guardian, "~> 2.5.0"},
       {:mox, "~> 1.2", only: :test},
       {:elixlsx, "~> 0.6"},
       {:xlsx_reader, "~> 0.8.11"},
       {:elasticsearch, git: "https://github.com/Bluetab/elasticsearch-elixir.git", tag: "8.8.0"},
       {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
-      {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "8.14.1"},
-      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "8.14.1"},
-      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "8.14.1"}
+      {:td_cluster, git: "https://github.com/Bluetab/td-cluster.git", tag: "8.15.1"},
+      {:td_cache, git: "https://github.com/Bluetab/td-cache.git", tag: "8.15.1"},
+      {:td_df_lib, git: "https://github.com/Bluetab/td-df-lib.git", tag: "8.15.0"}
     ]
   end
 end
