@@ -6,6 +6,12 @@
 
 - [TD-8777] Add `TdCore.XLSX.UploadRecovery` to mark as failed the uploads orphaned by a restart or an Oban timeout
 
+## [8.15.0] 2026-11-25
+
+### Changed
+
+- [TD-8673] Align Renovate configuration: group Mix dependency updates in a single `chore/td-dependency-management` pull request and disable separate lockfile maintenance
+
 ## [8.14.2] 2026-11-20
 
 ### Added
