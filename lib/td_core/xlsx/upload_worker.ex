@@ -13,11 +13,11 @@ defmodule TdCore.XLSX.UploadWorker do
         "path" => path,
         "job_id" => job_id,
         "scope" => scope,
-        "opts" => %{
-          "lang" => lang,
-          "auto_publish" => auto_publish,
-          "claims" => claims
-        }
+        "opts" =>
+          %{
+            "lang" => lang,
+            "claims" => claims
+          } = opts
       }) do
     impl_for =
       :td_core
@@ -30,7 +30,7 @@ defmodule TdCore.XLSX.UploadWorker do
       impl_for: impl_for,
       lang: lang,
       claims: Claims.coerce(claims),
-      to_status: if(auto_publish == "true", do: "published", else: "draft")
+      to_status: resolve_target_status(opts)
     }
 
     UploadJobs.create_started(job_id)
@@ -48,4 +48,11 @@ defmodule TdCore.XLSX.UploadWorker do
 
       UploadJobs.create_failed(job_id, inspect(e))
   end
+
+  defp resolve_target_status(%{"to_status" => status})
+       when status in ["draft", "pending_approval", "published"],
+       do: status
+
+  defp resolve_target_status(%{"auto_publish" => "true"}), do: "published"
+  defp resolve_target_status(_opts), do: "draft"
 end
