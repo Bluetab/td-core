@@ -1,5 +1,16 @@
 # Changelog
 
+## [8.15.1] 2026-11-25
+
+### Changed
+
+- [TD-8673] Update Mix dependencies: `plug` to 1.20, `guardian` to 2.5, and `td_cluster`, `td_cache` and `td_df_lib` to 8.15.1, with matching lockfile updates
+
+### Fixed
+
+- [TD-8673] Update `ecto` to 3.14.3 in the lockfile, which fixes CVE-2026-118391 (unbounded query cache growth)
+- [TD-8673] Remove unused entries from `mix.lock` (`db_connection`, `ecto_sql`, `metrics`, `oban` and `unicode_util_compat`). `db_connection` 2.9.0 had CVE-2026-133555, and the `hex_audit` job failed on it
+
 ## [8.15.0] 2026-11-25
 
 ### Changed
